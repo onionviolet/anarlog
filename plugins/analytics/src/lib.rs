@@ -34,19 +34,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            let posthog_key = {
-                #[cfg(not(debug_assertions))]
-                {
-                    let v = env!("POSTHOG_API_KEY");
-                    assert!(v.starts_with("phc_"));
-                    Some(v)
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    option_env!("POSTHOG_API_KEY")
-                }
-            };
+            let posthog_key = option_env!("POSTHOG_API_KEY").filter(|v| !v.is_empty());
+            if let Some(v) = posthog_key {
+                assert!(v.starts_with("phc_"));
+            }
 
             let outlit_key = option_env!("OUTLIT_PUBLIC_KEY");
 
