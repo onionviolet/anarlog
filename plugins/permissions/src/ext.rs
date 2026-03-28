@@ -1,7 +1,7 @@
 use crate::models::PermissionStatus;
 
 #[cfg(target_os = "macos")]
-use block2::RcBlock;
+use block2::StackBlock;
 #[cfg(target_os = "macos")]
 use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
 #[cfg(target_os = "macos")]
@@ -47,6 +47,18 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     pub async fn check(&self, permission: Permission) -> Result<PermissionStatus, crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(status) = self.check_sidecar(permission).await {
+                return Ok(status);
+            }
+
+            tracing::warn!(
+                ?permission,
+                "sidecar unavailable, falling back to in-process check"
+            );
+        }
+
         match permission {
             Permission::Calendar => self.check_calendar().await,
             Permission::Contacts => self.check_contacts().await,
@@ -54,6 +66,70 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
             Permission::SystemAudio => self.check_system_audio().await,
             Permission::Accessibility => self.check_accessibility().await,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    async fn check_sidecar(&self, permission: Permission) -> Option<PermissionStatus> {
+        use tauri_plugin_sidecar2::Sidecar2PluginExt;
+
+        let arg = match permission {
+            Permission::Calendar => "calendar",
+            Permission::Contacts => "contacts",
+            Permission::Microphone => "microphone",
+            Permission::SystemAudio => "systemAudio",
+            Permission::Accessibility => "accessibility",
+        };
+
+        let cmd = self
+            .manager
+            .sidecar2()
+            .sidecar("check-permissions")
+            .ok()?
+            .args([arg]);
+
+        let output = cmd.output().await.ok()?;
+
+        if !output.status.success() {
+            tracing::warn!(
+                status = ?output.status,
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "check-permissions binary failed"
+            );
+            return None;
+        }
+
+        let value = String::from_utf8(output.stdout).ok()?;
+        let value = value.trim();
+
+        let status = match permission {
+            Permission::Calendar => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "fullAccess" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Contacts => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Microphone => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
+            Permission::SystemAudio => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Accessibility => match value {
+                "trusted" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
+        };
+
+        tracing::debug!(permission = arg, %value, ?status, "check via sidecar");
+        Some(status)
     }
 
     pub async fn request(&self, permission: Permission) -> Result<(), crate::Error> {
@@ -265,20 +341,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     async fn request_microphone(&self) -> Result<(), crate::Error> {
         #[cfg(target_os = "macos")]
         {
-            let (tx, rx) = std::sync::mpsc::channel::<bool>();
-            let completion = RcBlock::new(move |granted: objc2::runtime::Bool| {
-                let _ = tx.send(granted.as_bool());
-            });
-
             unsafe {
                 let media_type = AVMediaTypeAudio.unwrap();
-                AVCaptureDevice::requestAccessForMediaType_completionHandler(
-                    media_type,
-                    &completion,
-                );
+                let block = StackBlock::new(|_granted| {});
+                AVCaptureDevice::requestAccessForMediaType_completionHandler(media_type, &block);
             }
-
-            let _ = rx.recv_timeout(std::time::Duration::from_secs(60));
         }
 
         #[cfg(not(target_os = "macos"))]
