@@ -1,48 +1,73 @@
 # Product Positioning
 
-All content created under this directory must follow the positioning below.
+All content created under this directory must follow the positioning below. Source of truth: the **anarlog wiki** at `~/charpedia/anarlog/` (canonical pages: `product.md`, `marketing.md`, `community.md`, `history.md`).
 
-## What Char Is
+> If this doc and the wiki ever disagree, **the wiki wins.** Update this doc to match.
 
-Char is an open-source AI notepad for meetings built for high-agency people who demand complete control over their data and AI stack.
+## What anarlog is
 
-## Core Philosophy
+**The open-source AI meeting notetaker.** MIT licensed. Self-hostable. BYOK.
 
-**Zero lock-in.** Char gives users ownership at the foundational level—your files, your AI, your workflow. No lock-in. No compromises.
+Tagline: **"Granola, rearranged."** (`anarlog` = anagram of `granola`)
 
-**Files over apps.** Everything is stored as plain markdown files on the user's device, not in proprietary databases or cloud servers.
+Records meetings → transcribes locally → generates notes. Your data never leaves your infrastructure unless you choose to send it.
 
-**Secure by design.** IT team can audit the code and you can use the AI provider your security team approves.
+- **Repo:** [`fastrepl/anarlog`](https://github.com/fastrepl/anarlog) (8,331⭐ at rename, history preserved)
+- **Site:** `anarlog.so`
+- **License:** MIT (relicensed from GPL during Operation Supernova)
+- **Status:** Maintenance mode + autopilot. Solo-maintained by John in the margins. Cortana watches for market pull.
 
-**Simple but powerful.** Complete control without complexity. The tool doesn't get in your way.
+## What anarlog is *not*
 
-## Target Audience (in this order)
+- **Not the team's flagship.** The flagship is [Char](https://char.com) — separate product, productivity-focused, private repo, managed SaaS for individuals/founders.
+- **Not commercially load-bearing.** Doesn't need to "succeed" by revenue metrics. No paid acquisition. No SEO calendar. No PLG funnel.
+- **Not getting major new features.** Bug fixes, security, build issues, community PRs.
 
-1. Engineers, developers, technical founders
-2. Privacy-conscious professionals (lawyers, healthcare, finance)
-3. People who already use tools like Obsidian, Notion, or local-first workflows
-4. People whose company has banned other cloud-based tools like Otter, ChatGPT, Granola
-5. Open source enthusiasts
-6. People who already have unused LLM API credits
+## Why anarlog exists
 
-## Core Features
+Three reasons, in this order:
+
+1. **A promise to the 8.3k stargazers:** "we'll never close our repos." anarlog is the open-source notetaker that fulfills it.
+2. **OSS goodwill** earned over Hyprnote → Char → unsigned-char → anarlog. Killing the repo kills the goodwill.
+3. **A market test:** is there enterprise self-host pull for an open-source AI notetaker? If yes → John hires someone to own it. If no → anarlog stays maintenance OSS forever. **No team time on this until pull is real.**
+
+## Core thesis
+
+The architecture anarlog exists to oppose: tools like Granola, Otter, Fireflies take your meetings, send them to their cloud, store them in their database, and rent access back to you. **anarlog is the inverse.** The audio stays on your machine. The notes are markdown files in a folder you control. You bring your own keys, run local models, or self-host the whole stack. The repo is open-source and auditable. If we disappeared tomorrow, your notes would still be there, in a format you can open in any editor, forever.
+
+> *"Privacy is a feature talk. Ownership is the whole thing."* — anarlog.so/blog/char-is-now-anarlog
+
+**Ownership is the frame.** Privacy and self-hosting are *consequences* of ownership, not the lead. Don't write fear-shaped content.
+
+## Target audience (in this order)
+
+The wiki narrows this to a tighter set than legacy Char positioning:
+
+1. **Developers, technical founders, platform/infra engineers** — the readers of dev-tool landings. They starred the repo. They're the primary audience.
+2. **Eng leads + security-curious devs at compliance-heavy orgs** — the enterprise self-host pull we're testing for. Watch for: `.com` email stargazers, SOC2/HIPAA questions, "can our team self-host this" inbound.
+3. **Existing Char 1.0 users** migrating to a maintained OSS home.
+4. **Privacy-conscious professionals** (lawyers, healthcare, finance) — real, but secondary. They arrive *because* of ownership, not because of fear marketing.
+5. **People whose org banned cloud notetakers** (Otter, Granola, Fireflies, ChatGPT meeting notes).
+6. **Open-source enthusiasts** who already prefer files-over-apps stacks (Obsidian, plain markdown, BYOK).
+
+## Core features
 
 **Real-time transcription**
 - System audio capture (no bots joining calls, no calendar permissions)
 - Live transcript generated while user takes notes
 
 **AI summary**
-- Combines user notes + transcript to create structured summaries
+- Combines user notes + transcript into structured summaries
 - User controls which AI processes their data
 
-**Your choice of AI stack**
-- Managed cloud service (easiest, works out of the box)
-- Bring your own API keys (OpenAI, Deepgram, Anthropic, others)
-- Run local models (via Ollama or LM Studio)
+**Your choice of stack**
+- Bring your own API keys (OpenAI, Deepgram, Anthropic, Mistral, Gemini, OpenRouter, Azure)
+- Run local models via Ollama or LM Studio
+- Or self-host the whole thing — Docker one-liner, your infra, end-to-end
 
 **Plain markdown files**
 - Stored locally on user's device
-- Works with any tool (Obsidian, Notion, VS Code, etc.)
+- Works with any tool (Obsidian, Notion, VS Code, vim)
 - Future-proof format
 - Zero lock-in
 
@@ -55,54 +80,65 @@ Char is an open-source AI notepad for meetings built for high-agency people who 
 - Import existing recordings/transcripts
 - 45+ language support
 
-## What Makes Char Different
+## What makes anarlog different
 
-**vs. Other AI note-takers:**
+**vs. cloud AI notetakers (Granola, Otter, Fireflies, tl;dv, Read.ai):**
 - Plain markdown files instead of proprietary databases
 - System audio capture instead of meeting bots
-- User's choice of AI provider instead of vendor lock-in
-- Complete file ownership instead of platform dependency
+- Your choice of AI provider instead of vendor lock-in
+- Self-host or BYOK instead of cloud-only
+- Open-source MIT instead of black-box SaaS
 
-**Privacy approach:**
-- Char doesn't store conversations
-- Every audio file, transcript, and note lives on user's computer
-- User decides if data ever leaves their device
-- Option to deploy fully local
-- No data used for AI training
+**vs. Char (the sister product):**
+- anarlog is the OSS notetaker for orgs/devs who want to self-host
+- Char is managed SaaS for individuals and founders who want it to just work
+- Same lineage, different audiences, different licenses, different cadences. **Don't compete; complement.**
 
-**Works With**
-All meeting types: Zoom, Teams, phone calls, in-person conversations
-
-## Brand Voice
+## Brand voice
 
 **We are:**
-- Direct and honest
-- Engineering-minded
-- Focused on fundamentals
-- Anti-lock-in
-- Pro-ownership
+- **Code-first.** The hero is an install command, not a hero image.
+- **Dry and terse.** No "AI-powered." No "transform your workflow." No testimonials. No avatars. No "Trusted by [logos]."
+- **Direct and honest.** Maintenance mode is named explicitly. Slow releases are named explicitly. We don't promise features.
+- **Engineering-minded.** Respects reader intelligence. Assumes they can read a Dockerfile.
+- **Pro-ownership, anti-lock-in.** Frame in terms of control, not fear.
 
 **We are not:**
 - Corporate or overly polished
-- Privacy-paranoid (we're about control, not fear)
+- Privacy-paranoid (we lead with ownership; privacy follows)
 - Feature-bloated
+- A SaaS funnel
 - Trying to be everything to everyone
 
-## Key Messaging Themes
+## Key messaging themes
 
-1. **Complete control** - over AI stack, data, and workflow
-2. **True ownership** - files on your device, not someone's database
-3. **No lock-in** - portable format, works with any tool
-4. **Simple + powerful** - control without complexity
-5. **For high-agency people** - built for those who refuse to compromise
+1. **Ownership** — files on your device, repo on GitHub, license you can audit
+2. **Self-host** — Docker one-liner, your infra, your stack
+3. **BYOK** — your AI provider, your keys, your retention policy (or none)
+4. **No lock-in** — markdown files, open format, portable forever
+5. **Sister to Char** — mention once, don't dominate. anarlog is for self-hosters; Char is for individuals/founders.
 
-## What We're Building Toward
+## What we're building toward
 
-A notepad that gives complete control without getting in your way. Clean, simple, aesthetic—but with full ownership underneath.
+A maintenance-mode OSS project that stays alive, honest, and useful for the community that vouched for it. If the market test surfaces real enterprise self-host pull — the contingency plan exists in `~/charpedia/anarlog/marketing.md`. Until then, we don't build apparatus we don't need.
 
-## Critical Reminders
+## Critical reminders
 
-- **Name:** Always use "Char" (not "Hyprnote" - that's the old name)
-- **Tone:** Direct, engineering-minded, respects user intelligence
-- **Focus:** Zero lock-in, true ownership, complete control
-- **Avoid:** Generic productivity language, corporate marketing speak, fear-based messaging
+- **Name:** Always use **"anarlog"** (lowercase). Not "Char" — Char is a separate product at char.com. Not "Hyprnote" — that's two names ago, and we reached an agreement that retired it. Not "unsigned-char" — that was the GitHub-org-rename interim name during Operation Supernova.
+- **Tone:** Direct, dry, engineering-minded, respects reader intelligence.
+- **Frame:** Ownership > privacy. Control > fear. Self-host > "secure cloud."
+- **Avoid:** Generic productivity language, corporate marketing speak, fear-based privacy messaging ("Is X safe? 😱"), feature lists that read like a SaaS comparison grid.
+- **Cross-links:** When mentioning Char, use `https://char.com` (full URL, mentioned once, doesn't dominate).
+
+## Source of truth
+
+| Topic | Canonical doc |
+|---|---|
+| Product status, naming, what it is | `~/charpedia/anarlog/product.md` |
+| Marketing posture + landing-page rules | `~/charpedia/anarlog/marketing.md` |
+| Community / contributor voice | `~/charpedia/anarlog/community.md` |
+| Naming arc + Operation Supernova | `~/charpedia/anarlog/history.md` |
+| Maintenance bar (do fix / won't fix) | `~/charpedia/anarlog/maintenance.md` |
+| Cortana's autopilot duties | `~/charpedia/anarlog/autopilot.md` |
+
+When updating positioning, update the wiki first, then propagate here.
