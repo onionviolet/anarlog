@@ -28,6 +28,67 @@ const FONT_STYLESHEETS = [
   "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap",
 ] as const;
 
+const ROOT_AUTH_CALLBACK_REDIRECT_SCRIPT = `
+(() => {
+  if (window.location.pathname !== "/") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const validTypes = new Set([
+    "email",
+    "recovery",
+    "magiclink",
+    "signup",
+    "invite",
+    "email_change",
+  ]);
+  const validSchemes = new Set([
+    "hypr",
+    "hyprnote",
+    "hyprnote-nightly",
+    "hyprnote-staging",
+    "char",
+    "char-nightly",
+    "char-staging",
+  ]);
+  const type = params.get("type");
+  const hasAuthCallback =
+    params.has("code") ||
+    params.has("error") ||
+    (params.has("token_hash") && type && validTypes.has(type));
+
+  if (!hasAuthCallback) return;
+
+  const next = new URL("/auth/", window.location.origin);
+  next.searchParams.set(
+    "flow",
+    params.get("flow") === "web" ? "web" : "desktop",
+  );
+
+  const scheme = params.get("scheme");
+  next.searchParams.set(
+    "scheme",
+    scheme && validSchemes.has(scheme) ? scheme : "hyprnote",
+  );
+
+  for (const key of [
+    "code",
+    "token_hash",
+    "redirect",
+    "error",
+    "error_description",
+  ]) {
+    const value = params.get(key);
+    if (value) next.searchParams.set(key, value);
+  }
+
+  if (type && validTypes.has(type)) {
+    next.searchParams.set("type", type);
+  }
+
+  window.location.replace(next);
+})();
+`;
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
@@ -109,6 +170,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: ROOT_AUTH_CALLBACK_REDIRECT_SCRIPT,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
