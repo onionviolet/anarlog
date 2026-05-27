@@ -1,4 +1,4 @@
-> **Note:** We're now working primarily on **[char](https://v2.char.com)** — a new productivity-focused product that's where most of our active development goes. **anarlog** stays open-source, MIT-licensed, and maintained. The cross-link to char lives here so you know where the team's attention is. Same team, different bets.
+> **Note:** The team is now building **[char](https://char.com)**. **anarlog** remains open-source, MIT-licensed, and maintained as the local-first meeting notetaker in this repo.
 
 ![anarlog](https://repository-images.githubusercontent.com/900550981/a4267a9f-414b-4c36-965c-419313ce2417)
 
@@ -18,11 +18,11 @@ Granola, rearranged.
 
 Download the latest release for your platform:
 
-→ [github.com/fastrepl/char/releases/latest](https://github.com/fastrepl/char/releases/latest)
+→ [github.com/fastrepl/anarlog/releases/latest](https://github.com/fastrepl/anarlog/releases/latest)
 
-Open it. Join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM (OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, anything OpenAI-compatible).
+Open it and join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, or anything OpenAI-compatible.
 
-Self-host? Clone the repo, build, run.
+To self-host, clone the repo, build it, run it.
 
 ## Why use it
 
@@ -32,17 +32,17 @@ Self-host? Clone the repo, build, run.
 - **Open source, MIT.** Fork it. Sell it. Self-host it. We mean it.
 - **No accounts. No tracking. No "free tier."** Just the app.
 
-## A short essay
+## Name history
 
-We started this as **Hyprnote**. It became **char**. Now it's **anarlog**.
+**anarlog** started as **Hyprnote**, then briefly used the **char** name.
 
-Each name change came from a different reason — a legal one, a strategic one, a brand one. The product underneath kept getting clearer: a notetaker that respects your time, your data, and your right to walk away with both.
+We later split the work into two projects. **[char](https://char.com)** is the team's current productivity app. **anarlog** is this open-source, local-first meeting notetaker.
 
-We're now building [**char**](https://v2.char.com) — a new product, productivity-focused, where most of our active development happens. **anarlog** isn't a sunset. It's the open-source companion we promised to keep alive, and we will. This repository keeps its full history, its stars, and its trajectory. Same team. Same standards. Just a clearer split between what's open and what's experimental.
+That means this repository is not the current char codebase, and anarlog is not being retired. It keeps the original open-source path: MIT-licensed, forkable, self-hostable, and built for local notes you control.
 
 If you came here from Granola, welcome. If you came here from Hyprnote, welcome back.
 
-Either way: it's yours.
+Either way, it's yours.
 
 ---
 
