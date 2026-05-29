@@ -14,6 +14,9 @@ export function SiteFooter() {
         <Link to="/blog/" className="hover:text-[#181613]">
           Blog
         </Link>
+        <Link to="/pricing/" className="hover:text-[#181613]">
+          Pricing
+        </Link>
         <Link to="/changelog/" className="hover:text-[#181613]">
           Changelog
         </Link>

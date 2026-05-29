@@ -94,7 +94,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
     name: "Free",
     price: null,
     description:
-      "Fully functional with your own API keys. Perfect for individuals who want complete control.",
+      "Fully functional local meeting notes with your own AI keys. Best when you want complete control.",
     features: [
       { label: "On-device Transcription", included: true },
       { label: "Save Audio Recordings", included: true },
@@ -117,37 +117,19 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
     ],
   },
   {
-    id: "lite",
-    name: "Lite",
+    id: "pro",
+    name: "Pro",
     price: {
       monthly: 8,
       yearly: null,
     },
     description:
-      "Unlimited cloud transcription and AI models without the complexity. No API keys needed — just sign in and go.",
+      "Managed cloud transcription and AI models, plus every paid feature Anarlog currently ships.",
+    popular: true,
     features: [
       { label: "Everything in Free", included: true },
       { label: "Cloud Services (STT & LLM)", included: true },
       { label: "Speaker Identification", included: "partial" },
-      { label: "Change Playback Rates", included: false },
-      { label: "Integrations", included: false },
-      { label: "Advanced Templates", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: {
-      monthly: 25,
-      yearly: 250,
-    },
-    description:
-      "Everything in Lite, plus advanced sharing and team features out of the box.",
-    popular: true,
-    features: [
-      { label: "Everything in Lite", included: true },
       { label: "Change Playback Rates", included: true },
       {
         label: "Integrations",
@@ -156,11 +138,6 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
           "Google Calendar is available now. Additional integrations are in progress.",
       },
       { label: "Advanced Templates", included: "partial" },
-      {
-        label: "Connect to OpenClaw",
-        included: "partial",
-        tooltip: "Select which notes to sync",
-      },
       {
         label: "Cloud Sync",
         included: "partial",
