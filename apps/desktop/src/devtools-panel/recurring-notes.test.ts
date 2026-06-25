@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { populateRecurringMeetingNotes } from "./recurring-notes";
 
-import { buildPastSessionNotes } from "~/session/components/bottom-accessory/past-notes";
+import { buildPastSessionNotes } from "~/session/insights/past-notes";
 import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
 import type { Store } from "~/store/tinybase/store/main";
 
