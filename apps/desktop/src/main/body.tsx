@@ -25,7 +25,6 @@ import {
 } from "@hypr/ui/components/ui/resizable";
 import { cn } from "@hypr/utils";
 
-import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabContent } from "./tab-content";
 import {
@@ -36,7 +35,6 @@ import {
 import { useClassicMainTabsShortcuts } from "./useTabsShortcuts";
 
 import { useShell } from "~/contexts/shell";
-import { GlobalLiveTranscriptAccessory } from "~/session/components/bottom-accessory/global-live";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { NOTE_SURFACE_MIN_WIDTH_PX } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
@@ -81,7 +79,6 @@ export function ClassicMainBody() {
   const leftSidebarResizeDraggingRef = useRef(false);
 
   const isOnboarding = currentTab?.type === "onboarding";
-  const isChangelog = currentTab?.type === "changelog";
   const isSessionTab = currentTab?.type === "sessions";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
@@ -93,13 +90,6 @@ export function ClassicMainBody() {
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
-  const mainSurfaceChrome = resolveMainSurfaceChrome({
-    hasLeftSurfaceCustomSidebar,
-    isChangelog,
-    leftSidebarExpanded: leftsidebar.expanded,
-    showSidebarTimeline,
-    showSidebarTimelineChrome,
-  });
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
   const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus();
@@ -342,17 +332,12 @@ export function ClassicMainBody() {
             onPointerMove={mainAreaTopDrag.onPointerMove}
             onPointerUp={mainAreaTopDrag.onPointerEnd}
           >
-            <GlobalLiveTranscriptAccessory
-              currentTab={currentTab}
-              surfaceChrome={mainSurfaceChrome}
-            >
-              {currentTab ? (
-                <ClassicMainTabContent
-                  key={uniqueIdfromTab(currentTab)}
-                  tab={currentTab as Tab}
-                />
-              ) : null}
-            </GlobalLiveTranscriptAccessory>
+            {currentTab ? (
+              <ClassicMainTabContent
+                key={uniqueIdfromTab(currentTab)}
+                tab={currentTab as Tab}
+              />
+            ) : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

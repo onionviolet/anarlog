@@ -105,23 +105,6 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/session/components/bottom-accessory/global-live", () => ({
-  GlobalLiveTranscriptAccessory: ({
-    children,
-    currentTab,
-  }: {
-    children: React.ReactNode;
-    currentTab: { type: string } | null;
-  }) => (
-    <div
-      data-current-tab-type={currentTab?.type ?? ""}
-      data-testid="global-live-transcript-accessory"
-    >
-      {children}
-    </div>
-  ),
-}));
-
 vi.mock("~/shared/open-note-dialog", () => ({
   useOpenNoteDialog: () => ({
     open: mocks.openSearch,
