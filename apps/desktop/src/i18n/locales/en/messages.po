@@ -238,7 +238,7 @@ msgstr "Back"
 msgid "Base URL"
 msgstr "Base URL"
 
-#: src/settings/ai/stt/select.tsx:674
+#: src/settings/ai/stt/select.tsx:675
 msgid "Batch"
 msgstr "Batch"
 
@@ -491,7 +491,7 @@ msgstr "Delete All Recurring Events"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/settings/ai/stt/select.tsx:741
+#: src/settings/ai/stt/select.tsx:742
 msgid "Delete model"
 msgstr "Delete model"
 
@@ -544,7 +544,7 @@ msgstr "Don't save"
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
 
-#: src/settings/ai/stt/select.tsx:637
+#: src/settings/ai/stt/select.tsx:638
 msgid "Download"
 msgstr "Download"
 
@@ -1243,7 +1243,7 @@ msgstr "Pro trial"
 msgid "Ready to go"
 msgstr "Ready to go"
 
-#: src/settings/ai/stt/select.tsx:674
+#: src/settings/ai/stt/select.tsx:675
 msgid "Realtime"
 msgstr "Realtime"
 
@@ -1528,7 +1528,7 @@ msgstr "Show Event"
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
-#: src/settings/ai/stt/select.tsx:726
+#: src/settings/ai/stt/select.tsx:727
 #: src/sidebar/timeline/item.tsx:581
 msgid "Show in Finder"
 msgstr "Show in Finder"
@@ -1843,7 +1843,7 @@ msgstr "Upgrade to Pro for {0}"
 msgid "Upgrade to Pro to use this provider."
 msgstr "Upgrade to Pro to use this provider."
 
-#: src/settings/ai/stt/select.tsx:637
+#: src/settings/ai/stt/select.tsx:638
 msgid "Upgrade to use"
 msgstr "Upgrade to use"
 
