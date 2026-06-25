@@ -338,15 +338,6 @@ msgstr ""
 msgid "Closed"
 msgstr ""
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:43
-msgid "Collapse {0}"
-msgstr ""
-
-#: src/session/components/bottom-accessory/index.tsx:205
-msgid "Collapse {label}"
-msgstr ""
-
 #: src/task/resource-view.tsx:125
 #: src/task/resource-view.tsx:196
 msgid "comment"
@@ -618,15 +609,6 @@ msgstr ""
 msgid "existing data to new location"
 msgstr ""
 
-#. placeholder {0}: label ?? ""
-#: src/session/components/bottom-accessory/expand-toggle.tsx:44
-msgid "Expand {0}"
-msgstr ""
-
-#: src/session/components/bottom-accessory/index.tsx:205
-msgid "Expand {label}"
-msgstr ""
-
 #: src/settings/general/storage/index.tsx:169
 msgid "Expire recordings after one day"
 msgstr ""
@@ -808,7 +790,7 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
-#: src/session/components/bottom-accessory/index.tsx:161
+#: src/session/components/note-input/header.tsx:574
 msgid "Insights"
 msgstr ""
 
@@ -859,10 +841,6 @@ msgstr ""
 
 #: src/contacts/details.tsx:518
 msgid "LinkedIn"
-msgstr ""
-
-#: src/session/components/bottom-accessory/global-live.tsx:97
-msgid "Live"
 msgstr ""
 
 #: src/calendar/components/calendar-selection.tsx:76
@@ -926,7 +904,7 @@ msgstr ""
 msgid "Memo"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:260
+#: src/session/components/note-input/header.tsx:261
 msgid "Memos"
 msgstr ""
 
@@ -1264,8 +1242,8 @@ msgstr ""
 msgid "Refresh calendars"
 msgstr ""
 
-#: src/session/components/bottom-accessory/post-session.tsx:225
-#: src/session/components/bottom-accessory/post-session.tsx:243
+#: src/session/components/note-input/insights.tsx:138
+#: src/session/components/note-input/insights.tsx:156
 msgid "Regenerate insights"
 msgstr ""
 
@@ -1273,7 +1251,7 @@ msgstr ""
 msgid "Regenerate message"
 msgstr ""
 
-#: src/session/components/bottom-accessory/post-session.tsx:243
+#: src/session/components/note-input/insights.tsx:156
 msgid "Regenerating insights"
 msgstr ""
 
@@ -1407,7 +1385,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:907
+#: src/session/components/note-input/header.tsx:927
 #: src/templates/template-sidebar.tsx:354
 msgid "Search templates..."
 msgstr ""
@@ -1425,7 +1403,7 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:973
+#: src/session/components/note-input/header.tsx:993
 msgid "See all templates"
 msgstr ""
 
@@ -1483,7 +1461,7 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx:1012
+#: src/session/components/note-input/header.tsx:1032
 msgid "Session note tabs"
 msgstr ""
 
@@ -1666,11 +1644,6 @@ msgstr ""
 msgid "Stop response"
 msgstr ""
 
-#: src/session/components/bottom-accessory/post-session.tsx:335
-#: src/session/components/bottom-accessory/post-session.tsx:348
-msgid "Stop transcription"
-msgstr ""
-
 #: src/settings/general/app-settings.tsx:90
 msgid "Stop when meeting ends"
 msgstr "Stopiwch pan ddaw'r cyfarfod i ben"
@@ -1763,8 +1736,7 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
-#: src/session/components/bottom-accessory/index.tsx:152
-#: src/session/components/note-input/header.tsx:547
+#: src/session/components/note-input/header.tsx:548
 #: src/session/components/outer-header/overflow/export-modal.tsx:245
 #: src/session/components/outer-header/overflow/export-modal.tsx:295
 #: src/session/components/outer-header/overflow/export-modal.tsx:350
