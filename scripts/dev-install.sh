@@ -61,7 +61,9 @@ BUILT="${REPO_ROOT}/apps/desktop/src-tauri/target/${PROFILE}/bundle/macos/${APP_
 
 if security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
   echo "==> signing as '${SIGN_IDENTITY}' so permissions survive the rebuild"
-  codesign --force --deep --options runtime \
+  # No --options runtime: the hardened runtime adds library validation that a
+  # self-signed identity does not need and can trip over.
+  codesign --force --deep \
     --identifier "$BUNDLE_ID" --sign "$SIGN_IDENTITY" "$BUILT"
 else
   echo "==> WARNING: no '${SIGN_IDENTITY}' certificate found."
