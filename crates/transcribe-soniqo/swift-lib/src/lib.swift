@@ -266,7 +266,7 @@ private enum SpeechModelKind: String, CaseIterable {
     (try? HuggingFaceDownloader.getCacheDirectory(for: community1DiarizationRepo).path) ?? ""
   }
 
-  private static func community1FilesReady() -> Bool {
+  static func community1FilesReady() -> Bool {
     guard
       let directory = try? HuggingFaceDownloader.getCacheDirectory(
         for: community1DiarizationRepo
@@ -511,6 +511,12 @@ private actor SoniqoBridge {
   private static let maxModelResetWaiters = 16
 
   private var loadedModels: [SpeechModelKind: LoadedSpeechModel] = [:]
+  // Diarization clusters speaker embeddings from raw audio and never reads a
+  // word, so it does not belong to any one ASR model. Upstream stores it inside
+  // the Parakeet case, which is what limited speaker labels to European
+  // languages. Held separately here so any model can be diarized.
+  private var standaloneDiarizer: Community1DiarizationPipeline?
+  private var standaloneDiarizerTask: Task<Community1DiarizationPipeline, Error>?
   private var modelTasks: [SpeechModelKind: ModelLoad] = [:]
   private var modelEvictionTasks: [SpeechModelKind: Task<Void, Never>] = [:]
   private var modelEvictionGenerations: [SpeechModelKind: UInt64] = [:]
@@ -844,7 +850,7 @@ private actor SoniqoBridge {
 
   func diarizeAudioJSON(modelId: String, samplesData: Data, exactSpeakers: String) async -> String {
     do {
-      guard let kind = SpeechModelKind.resolve(modelId) else {
+      guard SpeechModelKind.resolve(modelId) != nil else {
         throw SoniqoBridgeError.message("Unsupported Soniqo model: \(modelId)")
       }
       guard let speakerCount = Int(exactSpeakers), speakerCount >= 2 else {
@@ -852,8 +858,9 @@ private actor SoniqoBridge {
       }
 
       let samples = try decodeFloatSamples(from: samplesData)
-      let pipeline = try await ensureModelLoaded(kind).asDiarizationPipeline()
-      defer { markModelIdle(kind) }
+      // The model id is validated but not used to reach the diarizer: speaker
+      // separation is acoustic, so it works the same whatever transcribed.
+      let pipeline = try await ensureDiarizer()
       let result = try pipeline.diarize(
         audio: samples,
         sampleRate: soniqoFileTranscriptionSampleRate,
@@ -1044,6 +1051,38 @@ private actor SoniqoBridge {
     ranges.removeLast()
     ranges[previousIndex] = previousRange.lowerBound..<trailingRange.upperBound
     return ranges
+  }
+
+  private func ensureDiarizer() async throws -> Community1DiarizationPipeline {
+    if let pipeline = standaloneDiarizer {
+      return pipeline
+    }
+
+    // One in-flight load shared by concurrent callers, so two recordings
+    // finishing together do not each pull the model.
+    if let task = standaloneDiarizerTask {
+      return try await task.value
+    }
+
+    let task = Task { () throws -> Community1DiarizationPipeline in
+      try await Community1DiarizationPipeline.fromPretrained(
+        modelId: community1DiarizationRepo,
+        offlineMode: SpeechModelKind.community1FilesReady(),
+        computeUnits: .cpuOnly,
+        progressHandler: nil
+      )
+    }
+    standaloneDiarizerTask = task
+
+    do {
+      let pipeline = try await task.value
+      standaloneDiarizer = pipeline
+      standaloneDiarizerTask = nil
+      return pipeline
+    } catch {
+      standaloneDiarizerTask = nil
+      throw error
+    }
   }
 
   private func ensureModelLoaded(_ kind: SpeechModelKind) async throws -> LoadedSpeechModel {
