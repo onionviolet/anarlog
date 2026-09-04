@@ -125,6 +125,10 @@ So **Mandarin is now two clicks in the model picker, not a code change.** Apple 
 
 ## What is still worth forking, ranked
 
+0. **Ungate diarization, which looks like a product gate rather than a technical limit.** `diarize_samples` in `crates/transcribe-soniqo/src/lib.rs:145` refuses every model except `ParakeetBatch`, and Parakeet has no Chinese, so the app gives speaker labels **or** Mandarin and never both. **But the function takes `samples: &[f32]`, raw audio.** Diarization here is `pyannote-rs`, which clusters speaker embeddings acoustically and never sees a word, so it is language-independent by construction. The refusal is a policy line, not a capability line.
+
+   **Unverified and this is the part to test:** `model_id` is still handed to the Swift bridge, and `lib.rs:80` prepares the diarization cache only for `ParakeetBatch`, so the Swift side may validate the id or expect that cache. Whether the gate can simply widen, or needs the cache path generalized too, is unknown until someone tries it. **Payoff if it works: speaker labels on Mandarin and on Whisper Large V3, which is the one thing this fork's users cannot currently get anywhere in the app.**
+
 1. **Vault wiring.** `crates/storage/src/obsidian.rs` already reads `obsidian.json` and lists local vaults, and `crates/storage/src/vault/` writes into one. This is the closest thing to the actual workflow: meeting in, markdown on disk, processed the same day. **Do not point it at the planning repo.** Raw transcripts are unprocessed material and the vault's own capture rules say they never live there; give it a separate folder outside the git repo.
 2. **Model disk management.** `delete_model` exists in `crates/transcribe-soniqo/src/lib.rs` and there is still no UI flow for reclaiming the space. Small, self-contained, visible.
 3. **The multilingual allow-list, now cosmetic.** Below, kept because the reasoning is still a good read of a code gate.
