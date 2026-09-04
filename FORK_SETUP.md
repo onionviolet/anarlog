@@ -50,12 +50,49 @@ It builds, signs with a stable identity, quits the running copy, installs to `/A
 
 macOS records a microphone or system-audio grant against an app's **code signing identity**, not its path. A locally built app is ad-hoc signed and its identity changes with every build, so each rebuild looks like a brand new app and the grants are gone. That is why a fresh build shows permissions as off no matter how many times you approve them.
 
-Signing every build with one self-signed certificate fixes it, and costs nothing. Create the certificate **once**:
+Signing every build with one self-signed certificate fixes it, and costs nothing. **Done on this machine 2026-09-04**, and needed once per machine. Keychain Access can do it through Certificate Assistant, but the whole thing works from the shell with no password prompt:
 
-1. Open **Keychain Access**, menu **Keychain Access > Certificate Assistant > Create a Certificate**.
-2. Name it `Anarlog Dev Self-Signed`, Identity Type **Self Signed Root**, Certificate Type **Code Signing**. Create it.
+```bash
+cat > cs.cnf <<'CNF'
+[ req ]
+distinguished_name = dn
+x509_extensions = v3_cs
+prompt = no
+[ dn ]
+CN = Anarlog Dev Self-Signed
+[ v3_cs ]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+subjectKeyIdentifier = hash
+CNF
 
-`dev-install.sh` picks it up automatically, and warns instead of failing when it is missing. Override the name with `ANARLOG_SIGN_IDENTITY` if you prefer another.
+openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+  -keyout key.pem -out cert.pem -config cs.cnf
+
+# The legacy algorithms are required. macOS cannot read the PKCS#12 defaults
+# OpenSSL 3 writes, and reports it as "MAC verification failed (wrong
+# password?)", which sends you hunting for a password problem that is not there.
+openssl pkcs12 -export -inkey key.pem -in cert.pem \
+  -name "Anarlog Dev Self-Signed" -out identity.p12 -passout pass:CHANGEME \
+  -macalg sha1 -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES
+
+security import identity.p12 -k ~/Library/Keychains/login.keychain-db \
+  -P CHANGEME -T /usr/bin/codesign
+
+# Trust it for code signing ONLY. Skip this and the import still succeeds while
+# `find-identity -p codesigning` keeps reporting zero valid identities.
+security add-trusted-cert -r trustRoot -p codeSign \
+  -k ~/Library/Keychains/login.keychain-db cert.pem
+
+security find-identity -v -p codesigning
+```
+
+**Then delete `key.pem` and `identity.p12`.** The private key lives in the keychain now, and this is the one part of the setup with a real downside: anything signed with that key is code this Mac trusts, so a leaked copy matters. The trust granted above is scoped to code signing and to this user account, not system-wide and not to TLS.
+
+`dev-install.sh` picks the identity up automatically and warns rather than failing when it is absent. Override the name with `ANARLOG_SIGN_IDENTITY`.
+
+**[vocab] The step everyone misses is the trust one.** Importing a certificate does not make it usable for signing. A self-signed certificate has nothing vouching for it until you say so yourself.
 
 **[grammar] Identity, not location, is what the OS trusts.** The same principle explains why moving an app does not lose its permissions while rebuilding it does, and why the notarized App Store build never asks twice.
 
