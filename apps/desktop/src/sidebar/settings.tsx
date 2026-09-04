@@ -31,6 +31,7 @@ import { cn } from "@anlg/utils";
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { useFeatureAccess } from "~/auth/local-entitlements";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
@@ -55,6 +56,8 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 export function SettingsNav() {
   const { i18n, t } = useLingui();
   const { isPro } = useBillingAccess();
+  const dictionaryAllowed = useFeatureAccess("dictionary");
+  const automationsAllowed = useFeatureAccess("automations");
   const workspaces = useMyWorkspacesWithMirror();
   const hasExistingWorkspace = (workspaces.data?.length ?? 0) > 0;
   const [search, setSearch] = useState("");
@@ -103,7 +106,7 @@ export function SettingsNav() {
           id: "dictionary",
           label: t`Dictionary`,
           icon: BookOpen,
-          requiresPro: true,
+          requiresPro: !dictionaryAllowed,
         },
       ],
     },
@@ -140,7 +143,7 @@ export function SettingsNav() {
           label: t`Automations`,
           icon: Lightning,
           destination: { type: "automations" },
-          requiresPro: true,
+          requiresPro: !automationsAllowed,
         },
       ],
     },

@@ -13,6 +13,29 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 - **App installed and running:** release `desktop_v1.4.19`, signed and notarized by Fastrepl, Inc. (Team `6SLY7V277V`), checksum matched against the published `.sha256`. Nothing was compiled to get there.
 - **Prior state found:** an older build (`1.0.47`, June) with two test sessions in `~/Library/Application Support/anarlog`. STT was set to `soniqo-parakeet-streaming` and the LLM provider was `ollama` with **no model selected**, so summaries never ran. Nothing was deleted.
 
+## What this fork is for, set 2026-09-04
+
+**Nothing that runs on this machine is gated behind a payment or a sign-in.**
+
+Upstream is MIT and the local pipeline is mostly free already, but a few features that cost Fastrepl nothing to run are locked client-side. The rule this fork applies, written once in `apps/desktop/src/auth/local-entitlements.ts`:
+
+> A feature is billable only when using it consumes Anarlog's servers.
+
+So **Sync, Teams and the Cloud API stay gated**, because they are served by someone else's infrastructure and unlocking them would only produce confusing failures. **Dictionary, app icons and Automations are ungated**, because they execute here, against local models or against the user's own Linear, Notion and GitHub credentials.
+
+`branch: local-first-no-gates`
+
+| Feature | Upstream | Here | Why |
+|---|---|---|---|
+| Dictionary | Pro | free | Feeds STT keyword biasing and the local title and enhance transforms |
+| App icon | Pro | free | Cosmetic, resolved from bundled assets |
+| Automations | Pro | free | Runs on this machine against the user's own third-party accounts |
+| Sync, Teams, Cloud API | Pro | Pro | Anarlog's servers do the work |
+
+**One finding worth the whole patch: Automations were gated on a login, not just on payment.** Their controls waited on `billing.isReady`, which is derived from a query that is disabled without a session, so it never resolves while signed out and the buttons stayed dead. An ungated feature cannot wait on billing claims, so `billingReady` now short-circuits.
+
+**Verified, and the honest limits.** `pnpm -F desktop typecheck` clean, `oxlint` clean with no new warnings against a 206-warning baseline, `dprint check` clean, `i18n:check` clean, and 3,927 desktop tests pass. Ten `devtools-bar` tests fail, and they fail identically on unmodified upstream, so they are not from this change. **Nothing was compiled, because full Xcode is still missing**, so the Rust side is unverified and the change has not been seen running in the app.
+
 ## The original goal is mostly obsolete, and that is a good outcome
 
 **The fork existed to unlock multilingual on-device speech-to-text**, because the only two models upstream exposed were Parakeet variants covering 25 European languages and no Mandarin.
@@ -37,6 +60,7 @@ So **Mandarin is now two clicks in the model picker, not a code change.** Apple 
 1. **Vault wiring.** `crates/storage/src/obsidian.rs` already reads `obsidian.json` and lists local vaults, and `crates/storage/src/vault/` writes into one. This is the closest thing to the actual workflow: meeting in, markdown on disk, processed the same day. **Do not point it at the planning repo.** Raw transcripts are unprocessed material and the vault's own capture rules say they never live there; give it a separate folder outside the git repo.
 2. **Model disk management.** `delete_model` exists in `crates/transcribe-soniqo/src/lib.rs` and there is still no UI flow for reclaiming the space. Small, self-contained, visible.
 3. **The multilingual allow-list, now cosmetic.** Below, kept because the reasoning is still a good read of a code gate.
+4. **Done: the local ungating above.**
 
 ## The old code change, for reference only
 

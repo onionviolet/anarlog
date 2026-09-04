@@ -7,6 +7,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { useFeatureAccess } from "~/auth/local-entitlements";
 import { useNotifyPlanRequired } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -38,6 +39,7 @@ const PREVIEW_CLASS =
 export function AppIconSelector() {
   const { t } = useLingui();
   const billing = useBillingAccess();
+  const allowed = useFeatureAccess("appIcon");
   const notifyPlanRequired = useNotifyPlanRequired();
   const value = normalizeAppIconPreference(useConfigValue("app_icon"));
   const storedTheme = useConfigValue("theme") as ThemePreference;
@@ -91,7 +93,7 @@ export function AppIconSelector() {
             resolveAppIconName(option, appIdentifier) === selectedIconName;
           const previewName = resolveAppIconName(option, appIdentifier);
           const hasDarkVariant = hasDarkAppIconVariant(previewName);
-          const locked = !billing.isPro && !selected;
+          const locked = !allowed && !selected;
 
           return (
             <button
