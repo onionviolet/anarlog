@@ -55,7 +55,36 @@ fn all_includes_available_model_variants() {
 fn selectable_includes_advertised_models() {
     assert_eq!(
         SoniqoModel::selectable(),
-        &[SoniqoModel::ParakeetStreaming, SoniqoModel::ParakeetBatch]
+        &[
+            SoniqoModel::ParakeetStreaming,
+            SoniqoModel::ParakeetBatch,
+            SoniqoModel::Omnilingual,
+        ]
+    );
+}
+
+/// The pairing this fork exists to make possible: a model that transcribes
+/// Chinese, offered in the picker, and not refused by the diarizer.
+#[test]
+fn omnilingual_is_selectable_and_handles_chinese() {
+    let chinese: anlg_language::Language = "zh".parse().unwrap();
+
+    assert!(SoniqoModel::selectable().contains(&SoniqoModel::Omnilingual));
+    assert!(SoniqoModel::Omnilingual.supports_language(&chinese));
+    assert!(!SoniqoModel::ParakeetBatch.supports_language(&chinese));
+}
+
+/// Diarization used to be refused for every model but ParakeetBatch. The
+/// speaker-count guard is what should reject a bad call now, not the model.
+#[test]
+fn diarization_rejects_on_speaker_count_rather_than_model() {
+    let error = diarize_samples(SoniqoModel::Omnilingual, &[0.0f32; 16], 1)
+        .expect_err("one speaker is not diarization");
+
+    let message = error.to_string();
+    assert!(
+        message.contains("two speakers"),
+        "expected the speaker-count guard, got: {message}"
     );
 }
 

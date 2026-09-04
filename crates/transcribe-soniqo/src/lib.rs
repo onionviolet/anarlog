@@ -149,12 +149,10 @@ pub fn diarize_samples(
     exact_speakers: usize,
 ) -> Result<Vec<DiarizationSegment>> {
     ensure_supported_platform(model)?;
-    if model.batch_model() != SoniqoModel::ParakeetBatch {
-        return Err(Error::Bridge(format!(
-            "{} does not support speaker diarization",
-            model.display_name()
-        )));
-    }
+    // Upstream refused every model but ParakeetBatch here, which meant speaker
+    // labels and Mandarin were mutually exclusive. Diarization runs on the raw
+    // samples below through a pipeline that clusters speaker embeddings, so it
+    // is language-independent and does not depend on which model transcribed.
     if exact_speakers < 2 {
         return Err(Error::Bridge(
             "speaker diarization requires at least two speakers".to_string(),

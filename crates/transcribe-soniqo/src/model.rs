@@ -77,7 +77,15 @@ impl SoniqoModel {
         Self::Qwen3Large,
     ];
 
-    const SELECTABLE: &'static [Self] = &[Self::ParakeetStreaming, Self::ParakeetBatch];
+    // Omnilingual is implemented, downloadable and multilingual, and upstream
+    // hides it behind this list alone. It is exposed here because it is the
+    // only Soniqo model that transcribes Chinese, and with diarization no
+    // longer tied to Parakeet it is the one path to speaker labels on Mandarin.
+    const SELECTABLE: &'static [Self] = &[
+        Self::ParakeetStreaming,
+        Self::ParakeetBatch,
+        Self::Omnilingual,
+    ];
 
     pub const fn all() -> &'static [Self] {
         Self::ALL
