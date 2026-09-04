@@ -1351,6 +1351,10 @@ msgstr ""
 msgid "Continue"
 msgstr ""
 
+#: src/onboarding/permissions.tsx
+msgid "Continue anyway"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Continue to Team checkout"
 msgstr ""
@@ -5287,6 +5291,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Use this domain for links shared from this workspace."
+msgstr ""
+
+#: src/onboarding/permissions.tsx
+msgid "Use this if you already granted these and Anarlog still shows them as off."
 msgstr ""
 
 #: src/settings/general/main-language.tsx

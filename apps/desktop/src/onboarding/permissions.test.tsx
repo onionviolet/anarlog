@@ -82,6 +82,34 @@ describe("PermissionsSection", () => {
     ).toHaveLength(3);
   });
 
+  it("offers a manual escape when detection says the permissions are missing", () => {
+    const onContinue = vi.fn();
+
+    render(<PermissionsSection onContinue={onContinue} />);
+
+    const escape = screen.getByRole("button", { name: "Continue anyway" });
+    expect(onContinue).not.toHaveBeenCalled();
+
+    fireEvent.click(escape);
+    expect(onContinue).toHaveBeenCalledTimes(1);
+
+    // A second click must not re-fire: the step is already left behind.
+    fireEvent.click(escape);
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the manual escape once every permission is authorized", () => {
+    Object.values(mocks.permissions).forEach((permission) => {
+      permission.status = "authorized";
+    });
+
+    render(<PermissionsSection onContinue={vi.fn()} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Continue anyway" }),
+    ).toBeNull();
+  });
+
   it("waits for all three macOS permissions before continuing", () => {
     const onContinue = vi.fn();
     mocks.permissions.microphone.status = "authorized";

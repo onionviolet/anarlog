@@ -1351,6 +1351,10 @@ msgstr "Context"
 msgid "Continue"
 msgstr "Continue"
 
+#: src/onboarding/permissions.tsx
+msgid "Continue anyway"
+msgstr "Continue anyway"
+
 #: src/settings/team/index.tsx
 msgid "Continue to Team checkout"
 msgstr "Continue to Team checkout"
@@ -5288,6 +5292,10 @@ msgstr "Use the meeting's action items and summary tasks."
 #: src/settings/team/index.tsx
 msgid "Use this domain for links shared from this workspace."
 msgstr "Use this domain for links shared from this workspace."
+
+#: src/onboarding/permissions.tsx
+msgid "Use this if you already granted these and Anarlog still shows them as off."
+msgstr "Use this if you already granted these and Anarlog still shows them as off."
 
 #: src/settings/general/main-language.tsx
 msgid "Use this language for summaries and AI responses."

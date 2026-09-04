@@ -13,6 +13,7 @@ import { useRef } from "react";
 import { type PermissionStatus } from "@anlg/plugin-permissions";
 import { cn } from "@anlg/utils";
 
+import { OnboardingButton } from "~/onboarding/shared";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   trackPermissionRequested,
@@ -264,6 +265,28 @@ function PermissionsSectionContent({
           />
         )}
       </div>
+
+      {/* Without this the step has no exit but a successful probe. macOS
+          reports a grant against the code-signing identity, so an unsigned or
+          ad-hoc build can be genuinely authorized and still read as denied,
+          which strands the user on a screen with no button. */}
+      {!isComplete && onContinue && (
+        <div className="mt-6 flex flex-col items-center gap-1">
+          <OnboardingButton
+            variant="ghost"
+            onClick={() => {
+              if (hasContinuedRef.current) return;
+              hasContinuedRef.current = true;
+              onContinue();
+            }}
+          >
+            {t`Continue anyway`}
+          </OnboardingButton>
+          <p className="text-muted-foreground/70 text-xs">
+            {t`Use this if you already granted these and Anarlog still shows them as off.`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
