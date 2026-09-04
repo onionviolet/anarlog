@@ -103,21 +103,40 @@ pub const fn is_available_on_current_platform(self) -> bool {
 
 **[grammar] One idea, four tools:** a package manager is always "a manifest plus a tool that installs what the manifest lists." `cargo` reads `Cargo.toml`, `pnpm` reads `package.json`, same as `pip`, `brew`, `apt`. Learn the pattern once.
 
-**To unblock the Rust build, in order.** Installing Xcode needs an Apple Account sign-in and the two `sudo` lines need a password, so these four steps are his and cannot be delegated.
+**Unblocking the Rust build, walked end to end on 2026-09-04.** Four steps, and **only one of them needs a password**, which is the opposite of what the first draft of this file predicted.
 
-1. Install Xcode from the App Store, about 15 GB against 116 GB free.
-2. `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
-3. `sudo xcodebuild -license accept`
-4. `xcodebuild -downloadComponent MetalToolchain`
+```bash
+# 1. Install Xcode from the App Store. Xcode 26.6 is only 3.5 GB, not the 15 GB
+#    older guides quote: SDKs and simulator runtimes are separate downloads now.
 
-**Step 4 is new and easy to miss.** From Xcode 26 the Metal toolchain is a separate download rather than part of the base install, and `build.rs` names that exact command in its panic message. Verify with `xcrun --find metal` returning a path before building.
+# 2. The one command that needs sudo. Nothing links until it runs, not even cc.
+sudo xcodebuild -license accept
+
+# 3. Undocumented prerequisite. xcodebuild cannot run at all until it installs
+#    CoreSimulator into /Library/Developer. No password needed.
+xcodebuild -runFirstLaunch
+
+# 4. The Metal compiler, 688 MB. No password needed.
+xcodebuild -downloadComponent MetalToolchain
+
+# Verify by EXECUTING it, not by locating it:
+xcrun metal --version
+```
+
+**`sudo xcode-select` is not needed.** `metal_developer_dir()` in `build.rs` probes `/Applications/Xcode.app/Contents/Developer` itself and passes it as `DEVELOPER_DIR` to the Metal commands, so the active developer directory can stay on the Command Line Tools.
+
+**[grammar] Finding a tool is not the same as being able to run it.** `xcrun --find metal` returns a path as soon as Xcode is installed, because the wrapper binary ships with Xcode while the compiler behind it is a separate asset. That path proves nothing. `xcrun metal --version` executes the thing and is the only check worth trusting. The same distinction applies to any `which`-style lookup.
+
+**Step 3 is named nowhere useful.** Anarlog's panic message tells you to run step 4, Apple's own error for step 4 tells you to run step 3, and nothing tells you step 2 comes first. The order above is the one that works.
 
 Then, and only then:
 
 ```bash
-cargo check -p transcribe-soniqo    # the crate that needs Metal
-cd apps/desktop && pnpm tauri:build
+cargo check -p transcribe-soniqo         # the crate that needs Metal, ~2 min cold
+cd apps/desktop && pnpm tauri build --debug
 ```
+
+**Use `pnpm tauri build`, not `pnpm tauri:build`.** The `tauri:build` script is a bare `tauri build`, while the `tauri` script wraps it in `dotenvx run --ignore MISSING_ENV_FILE`, which is what lets a release build proceed without the Supabase and Stripe env files. `--debug` skips release optimization and is enough to see a change running.
 
 **[judgment] `curl ... | sh` runs code you have not read.** rustup is trusted; the safe habit for anything else is `curl -O <url>`, read it, then run it.
 
@@ -158,7 +177,11 @@ cd apps/desktop && pnpm tauri:dev              # compiles the Rust core, launche
 ## 3. Troubleshooting
 
 - **`resolving Soniqo Swift dependencies failed`, or a `BuildServerProtocol.framework` dyld error:** you have only the Command Line Tools. Install full Xcode and re-point `xcode-select`. This is the first-build blocker and it is still unresolved on this machine.
-- **`error[E0463]: can't find crate for ref_cast_impl`, and the same for `serde_derive`, `thiserror_impl`, `strum_macros`, `tracing_attributes`.** Earlier notes here called this a parallel-build race and told you to run it again. **That was wrong, corrected 2026-09-04.** Running it again surfaces the real message underneath: `dlopen(...libserde_derive....dylib): mis-aligned LINKEDIT string pool`. The proc-macro dylibs in `target/` were built by an older toolchain and the current linker refuses to load them, so every macro-dependent crate fails at once. **Fix: `cargo clean`.** It removed 508 MB here and the build was healthy immediately after. **[grammar] When several unrelated crates fail the same way at the same moment, suspect one shared input rather than several coincidences.** The shared input is almost always the build cache.
+- **`error[E0463]: can't find crate for ref_cast_impl`, and the same for `serde_derive`, `thiserror_impl`, `strum_macros`, `tracing_attributes`.** Earlier notes here called this a parallel-build race and told you to run it again. **That was wrong, corrected 2026-09-04.** Running it again surfaces the real message underneath: `dlopen(...libserde_derive....dylib): mis-aligned LINKEDIT string pool`. The proc-macro dylibs in `target/` were built by an older toolchain and the current linker refuses to load them, so every macro-dependent crate fails at once. **Fix: `cargo clean`.** It removed 508 MB here and the build was healthy immediately after. **[grammar] When several unrelated crates fail the same way at the same moment, suspect one shared input rather than several coincidences.**
+
+**But the shared input is not always the cache, and assuming it was cost an hour on 2026-09-04.** The same error came back on dylibs that had just been built, with the failing crate name changing every run (`time`, then `phf`, then `thiserror`). The real cause was that **Xcode was installing in the background and the toolchain was being replaced underneath the running compiler.** Once the install finished, every link failed cleanly instead, with `cc` exiting 69 and saying the Xcode license had not been agreed to.
+
+**So: do not debug a Rust build while Xcode is installing.** Wait for the install, accept the license, then judge the build. A moving toolchain produces failures that look like a dozen unrelated bugs, and the first plausible explanation will be wrong.
 - **`failed to load manifest for workspace member plugins/flag`.** Upstream deleted `plugins/flag`, `plugins/network` and `plugins/webhook`, but pnpm had left a bare `node_modules` directory inside each. Cargo's `plugins/*` glob still matched those empty directories and `cargo metadata` refused to load the whole workspace. **Fix: delete the leftover directories.** Nothing in them is tracked by git. **[grammar] A glob in a manifest matches the filesystem, not the repository**, so anything a tool leaves behind after an upstream deletion becomes a phantom workspace member.
 - **pnpm `packageManager` mismatch warning:** harmless. `corepack use pnpm@<pinned>` to silence it.
 - **Rust version:** `rust-toolchain.toml` pins the version and `rustup` fetches it automatically inside the repo.
