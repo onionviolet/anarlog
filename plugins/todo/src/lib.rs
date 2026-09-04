@@ -63,9 +63,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 }
 
 fn get_api_base_url() -> String {
+    // Upstream requires VITE_API_URL at compile time in release, which makes a
+    // release build impossible without it. The value is not a secret: upstream
+    // CI sets it in plaintext, so fall back to it rather than failing.
     #[cfg(not(debug_assertions))]
     {
-        env!("VITE_API_URL").to_string()
+        option_env!("VITE_API_URL")
+            .unwrap_or("https://api.anarlog.so")
+            .to_string()
     }
 
     #[cfg(debug_assertions)]
