@@ -277,7 +277,7 @@ describe("AutomationsContent", () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Automation draft saved");
   });
 
-  it("toasts instead of saving on the free plan", () => {
+  it("saves without a subscription", async () => {
     mocks.billing.isPro = false;
     mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
@@ -285,17 +285,11 @@ describe("AutomationsContent", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
+    await waitFor(() => {
+      expect(mocks.setSettingValue).toHaveBeenCalled();
+    });
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 
   it("shows a dedicated view for a chat-created automation", () => {

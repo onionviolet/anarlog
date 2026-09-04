@@ -109,7 +109,7 @@ describe("AppIconSelector", () => {
     expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
   });
 
-  it("toasts instead of changing icons on the free plan", () => {
+  it("changes icons without a subscription", () => {
     mocks.billing.isPro = false;
 
     render(<AppIconSelector />);
@@ -117,22 +117,13 @@ describe("AppIconSelector", () => {
     const defaultOption = screen.getByRole("radio", { name: "Default" });
     const blueprintOption = screen.getByRole("radio", { name: "Blueprint" });
     expect(defaultOption.getAttribute("aria-disabled")).toBe("false");
-    expect(blueprintOption.getAttribute("aria-disabled")).toBe("true");
+    expect(blueprintOption.getAttribute("aria-disabled")).toBe("false");
 
     fireEvent.click(blueprintOption);
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
-    expect(mocks.setAppIcon).not.toHaveBeenCalled();
+    expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
   });
 
   it("previews both schemes for the system theme", () => {
