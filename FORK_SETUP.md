@@ -36,6 +36,37 @@ So **Sync, Teams and the Cloud API stay gated**, because they are served by some
 
 **Verified, and the honest limits.** `pnpm -F desktop typecheck` clean, `oxlint` clean with no new warnings against a 206-warning baseline, `dprint check` clean, `i18n:check` clean, and 3,927 desktop tests pass. Ten `devtools-bar` tests fail, and they fail identically on unmodified upstream, so they are not from this change. **The front end now builds for real:** `turbo build --filter=@anlg/desktop` succeeds, so this change compiles into a production bundle and not only into a type check. **The Rust side is still uncompiled** because the Metal compiler is missing, and nobody has seen the ungated settings running in the app.
 
+## Rebuilding without the ceremony
+
+```bash
+./scripts/dev-install.sh            # build release, sign, install, relaunch
+./scripts/dev-install.sh --debug    # much faster build, slower app
+./scripts/dev-install.sh --sync     # fast-forward from upstream first
+```
+
+It builds, signs with a stable identity, quits the running copy, installs to `/Applications/Anarlog Dev.app`, strips quarantine and relaunches. It also swallows the one expected failure: `tauri build` exits non-zero because it cannot sign an updater artifact without `TAURI_SIGNING_PRIVATE_KEY`, and that step runs **after** the bundle is written, so a bundle on disk means the build itself succeeded.
+
+### Keeping permissions across rebuilds, which is the point of the signing step
+
+macOS records a microphone or system-audio grant against an app's **code signing identity**, not its path. A locally built app is ad-hoc signed and its identity changes with every build, so each rebuild looks like a brand new app and the grants are gone. That is why a fresh build shows permissions as off no matter how many times you approve them.
+
+Signing every build with one self-signed certificate fixes it, and costs nothing. Create the certificate **once**:
+
+1. Open **Keychain Access**, menu **Keychain Access > Certificate Assistant > Create a Certificate**.
+2. Name it `Anarlog Dev Self-Signed`, Identity Type **Self Signed Root**, Certificate Type **Code Signing**. Create it.
+
+`dev-install.sh` picks it up automatically, and warns instead of failing when it is missing. Override the name with `ANARLOG_SIGN_IDENTITY` if you prefer another.
+
+**[grammar] Identity, not location, is what the OS trusts.** The same principle explains why moving an app does not lose its permissions while rebuilding it does, and why the notarized App Store build never asks twice.
+
+**The escape hatch stays regardless.** This fork adds a `Continue anyway` button to the onboarding permissions step, because upstream advances only on a successful probe and offers no button at all, which strands the user when detection is wrong.
+
+### A real self-updater, if it is ever worth it
+
+The app already carries updater plumbing, which is why the build asks for `TAURI_SIGNING_PRIVATE_KEY`. Pointing it at this fork takes four steps: generate a keypair with `pnpm tauri signer generate`, put the public key in the desktop `tauri.conf.json` updater block, set the private key as `TAURI_SIGNING_PRIVATE_KEY` when building, and publish the `.tar.gz` plus a `latest.json` to this fork's GitHub releases with the updater endpoint pointing there.
+
+**Worth doing only for a second machine.** On the machine that compiles the code, `dev-install.sh` is already faster than any update check, and an updater adds a release-publishing step to every change. Build it when there is somewhere else to install to.
+
 ## The original goal is mostly obsolete, and that is a good outcome
 
 **The fork existed to unlock multilingual on-device speech-to-text**, because the only two models upstream exposed were Parakeet variants covering 25 European languages and no Mandarin.
