@@ -58,19 +58,12 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            let posthog_key = {
-                #[cfg(not(debug_assertions))]
-                {
-                    let v = env!("POSTHOG_API_KEY");
-                    assert!(v.starts_with("phc_"));
-                    Some(v)
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    option_env!("POSTHOG_API_KEY")
-                }
-            };
+            // Upstream makes this key mandatory in release builds, which means a
+            // local build cannot be produced without carrying someone else's
+            // telemetry key. Treat it as optional in both profiles: absent
+            // disables analytics, and a malformed key still fails loudly.
+            let posthog_key = option_env!("POSTHOG_API_KEY");
+            assert!(posthog_key.is_none_or(|value| value.starts_with("phc_")));
 
             let client = {
                 let mut builder = anlg_analytics::AnalyticsClientBuilder::default();
