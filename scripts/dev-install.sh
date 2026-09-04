@@ -47,7 +47,9 @@ if [ "$SYNC" -eq 1 ]; then
 fi
 
 echo "==> building (${PROFILE})"
-( cd apps/desktop && pnpm tauri build "${TAURI_ARGS[@]}" ) || {
+# macOS ships bash 3.2, where "${ARR[@]}" on an empty array is an unbound
+# variable under set -u. The ${ARR[@]+...} guard expands to nothing instead.
+( cd apps/desktop && pnpm tauri build ${TAURI_ARGS[@]+"${TAURI_ARGS[@]}"} ) || {
   # The updater signature step fails without TAURI_SIGNING_PRIVATE_KEY and is
   # the last thing tauri does, so a bundle on disk means the build itself was
   # fine. Anything else is a real failure.
