@@ -34,7 +34,7 @@ So **Sync, Teams and the Cloud API stay gated**, because they are served by some
 
 **One finding worth the whole patch: Automations were gated on a login, not just on payment.** Their controls waited on `billing.isReady`, which is derived from a query that is disabled without a session, so it never resolves while signed out and the buttons stayed dead. An ungated feature cannot wait on billing claims, so `billingReady` now short-circuits.
 
-**Verified, and the honest limits.** `pnpm -F desktop typecheck` clean, `oxlint` clean with no new warnings against a 206-warning baseline, `dprint check` clean, `i18n:check` clean, and 3,927 desktop tests pass. Ten `devtools-bar` tests fail, and they fail identically on unmodified upstream, so they are not from this change. **Nothing was compiled, because full Xcode is still missing**, so the Rust side is unverified and the change has not been seen running in the app.
+**Verified, and the honest limits.** `pnpm -F desktop typecheck` clean, `oxlint` clean with no new warnings against a 206-warning baseline, `dprint check` clean, `i18n:check` clean, and 3,927 desktop tests pass. Ten `devtools-bar` tests fail, and they fail identically on unmodified upstream, so they are not from this change. **The front end now builds for real:** `turbo build --filter=@anlg/desktop` succeeds, so this change compiles into a production bundle and not only into a type check. **The Rust side is still uncompiled** because the Metal compiler is missing, and nobody has seen the ungated settings running in the app.
 
 ## The original goal is mostly obsolete, and that is a good outcome
 
@@ -95,7 +95,7 @@ pub const fn is_available_on_current_platform(self) -> bool {
 | Tool | Installed here | Needed for |
 |---|---|---|
 | Xcode Command Line Tools | yes | Rust's linker, the Tauri shell |
-| **Full Xcode** | **NO. `xcode-select -p` still reads `/Library/Developer/CommandLineTools`** | **Required to build.** `crates/transcribe-soniqo/build.rs` calls `swift package` and `xcrun --find metal`, and neither the Swift Package Manager nor the Metal compiler works from the bare CLT |
+| **Full Xcode** | **NO. `xcode-select -p` still reads `/Library/Developer/CommandLineTools`** | **Required to build the Rust side.** The blocker is narrower than it looked: `swift` and `swift-package` **are** in the current Command Line Tools, but `xcrun --find metal` fails, and `crates/transcribe-soniqo/build.rs` panics outright with no fallback when it cannot find a Metal compiler |
 | Rust via `rustup` | 1.96.0 | the core and engine crates |
 | Node.js | v26.4.0 | the TypeScript front end |
 | pnpm | 11.9.0 | front-end dependencies |
@@ -103,11 +103,20 @@ pub const fn is_available_on_current_platform(self) -> bool {
 
 **[grammar] One idea, four tools:** a package manager is always "a manifest plus a tool that installs what the manifest lists." `cargo` reads `Cargo.toml`, `pnpm` reads `package.json`, same as `pip`, `brew`, `apt`. Learn the pattern once.
 
-To unblock a build later: install Xcode from the App Store (about 15 GB, and there is 120 GB free), then
+**To unblock the Rust build, in order.** Installing Xcode needs an Apple Account sign-in and the two `sudo` lines need a password, so these four steps are his and cannot be delegated.
+
+1. Install Xcode from the App Store, about 15 GB against 116 GB free.
+2. `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+3. `sudo xcodebuild -license accept`
+4. `xcodebuild -downloadComponent MetalToolchain`
+
+**Step 4 is new and easy to miss.** From Xcode 26 the Metal toolchain is a separate download rather than part of the base install, and `build.rs` names that exact command in its panic message. Verify with `xcrun --find metal` returning a path before building.
+
+Then, and only then:
 
 ```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-sudo xcodebuild -license accept
+cargo check -p transcribe-soniqo    # the crate that needs Metal
+cd apps/desktop && pnpm tauri:build
 ```
 
 **[judgment] `curl ... | sh` runs code you have not read.** rustup is trusted; the safe habit for anything else is `curl -O <url>`, read it, then run it.
@@ -136,8 +145,11 @@ git push origin main
 
 ```bash
 pnpm install
-cd apps/desktop && pnpm tauri:dev     # compiles the Rust core, launches in dev mode
+pnpm exec turbo build --filter=@anlg/desktop   # front end only, no Xcode needed
+cd apps/desktop && pnpm tauri:dev              # compiles the Rust core, launches in dev mode
 ```
+
+**Build the front end with turbo, not with `pnpm -F desktop build`.** The direct call skips the dependency graph, so `@anlg/ui` never runs its tailwind step and the build dies on an unresolved `@anlg/ui/globals.css` import from `main.tsx`. The error names a CSS file and the cause is a missing build order, which is why it reads as unrelated to whatever you just changed.
 
 - The first Rust build takes 10 to 15 minutes because every dependency compiles once. Later builds only recompile what changed. **[grammar: compilers cache]**
 - `tauri:dev` passes `--ignore MISSING_ENV_FILE`, so local transcription runs with no cloud keys and the Supabase and Stripe parts of the monorepo stay dark.
@@ -146,7 +158,8 @@ cd apps/desktop && pnpm tauri:dev     # compiles the Rust core, launches in dev 
 ## 3. Troubleshooting
 
 - **`resolving Soniqo Swift dependencies failed`, or a `BuildServerProtocol.framework` dyld error:** you have only the Command Line Tools. Install full Xcode and re-point `xcode-select`. This is the first-build blocker and it is still unresolved on this machine.
-- **`error[E0463]: can't find crate for ref_cast_impl`:** a parallel-build race, not a real error. Run it again.
+- **`error[E0463]: can't find crate for ref_cast_impl`, and the same for `serde_derive`, `thiserror_impl`, `strum_macros`, `tracing_attributes`.** Earlier notes here called this a parallel-build race and told you to run it again. **That was wrong, corrected 2026-09-04.** Running it again surfaces the real message underneath: `dlopen(...libserde_derive....dylib): mis-aligned LINKEDIT string pool`. The proc-macro dylibs in `target/` were built by an older toolchain and the current linker refuses to load them, so every macro-dependent crate fails at once. **Fix: `cargo clean`.** It removed 508 MB here and the build was healthy immediately after. **[grammar] When several unrelated crates fail the same way at the same moment, suspect one shared input rather than several coincidences.** The shared input is almost always the build cache.
+- **`failed to load manifest for workspace member plugins/flag`.** Upstream deleted `plugins/flag`, `plugins/network` and `plugins/webhook`, but pnpm had left a bare `node_modules` directory inside each. Cargo's `plugins/*` glob still matched those empty directories and `cargo metadata` refused to load the whole workspace. **Fix: delete the leftover directories.** Nothing in them is tracked by git. **[grammar] A glob in a manifest matches the filesystem, not the repository**, so anything a tool leaves behind after an upstream deletion becomes a phantom workspace member.
 - **pnpm `packageManager` mismatch warning:** harmless. `corepack use pnpm@<pinned>` to silence it.
 - **Rust version:** `rust-toolchain.toml` pins the version and `rustup` fetches it automatically inside the repo.
 - **Piped builds lie about success.** `cargo build | tail` reports `tail`'s exit code, not cargo's. Use `set -o pipefail`, then read `${PIPESTATUS[0]}`. **[grammar] A pipeline's status is its last command's status unless you say otherwise.**
