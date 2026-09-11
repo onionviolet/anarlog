@@ -292,6 +292,26 @@ describe("AutomationsContent", () => {
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 
+  it("keeps backend automation actions behind paid access", () => {
+    mocks.billing.isPro = false;
+    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
+
+    renderAutomations();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & enable" }));
+
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Anarlog Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
+      },
+    );
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+  });
+
   it("shows a dedicated view for a chat-created automation", () => {
     mocks.selection = { kind: "chat", groupId: "automation-1" };
     mocks.chatGroup = {

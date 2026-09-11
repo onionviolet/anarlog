@@ -6,8 +6,19 @@ import {
   runsLocally,
 } from "./local-entitlements";
 
-const LOCAL: ForkGatedFeature[] = ["dictionary", "appIcon", "automations"];
-const SERVER_BACKED: ForkGatedFeature[] = ["sync", "team", "cloudApi"];
+const LOCAL: ForkGatedFeature[] = [
+  "dictionary",
+  "appIcon",
+  "automations",
+  "playbackSpeed",
+  "summaryFormat",
+];
+const SERVER_BACKED: ForkGatedFeature[] = [
+  "automationCloudActions",
+  "sync",
+  "team",
+  "cloudApi",
+];
 
 describe("fork entitlements", () => {
   it.each(LOCAL)("%s is available without a subscription", (feature) => {

@@ -174,7 +174,7 @@ describe("Auto format editor", () => {
     expect(screen.queryByText("Variables")).toBeNull();
   });
 
-  it("keeps the format visible and toasts for Free users", () => {
+  it("lets Free users edit and save the local format", async () => {
     mocks.billing.isPro = false;
 
     renderWithQueryClient(
@@ -190,22 +190,23 @@ describe("Auto format editor", () => {
       screen.getByText("Choose how Auto structures and styles your summaries."),
     ).toBeTruthy();
 
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Auto summary format" }),
+      { target: { value: "# Decisions\n- Keep local features local." } },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
+    await waitFor(() => {
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "auto_summary_prompt",
+        "# Decisions\n- Keep local features local.",
+      );
+    });
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 
-  it("toasts instead of opening example generation for Free users", () => {
+  it("opens local example generation for Free users", () => {
     mocks.billing.isPro = false;
 
     renderWithQueryClient(
@@ -216,19 +217,11 @@ describe("Auto format editor", () => {
       screen.getByRole("button", { name: "Improve with examples" }),
     );
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("dialog", { name: "Improve summary format" }),
-    ).toBeNull();
+      screen.getByRole("dialog", { name: "Improve summary format" }),
+    ).toBeTruthy();
   });
 
   it("generates an editable format from up to three transient examples", async () => {

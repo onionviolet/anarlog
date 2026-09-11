@@ -13,10 +13,16 @@ export type ForkGatedFeature =
   | "dictionary"
   // Cosmetic, resolved entirely from bundled assets.
   | "appIcon"
-  // Executes on this machine against the user's own Linear, Notion or GitHub
-  // credentials. No Anarlog infrastructure is involved.
+  // Editing automation drafts and exporting Markdown run on this machine.
   | "automations"
-  // The three below are served by Anarlog's backend, so they stay billable.
+  // Playback controls only change the local WaveSurfer player.
+  | "playbackSpeed"
+  // Custom summary instructions are stored locally and run through whichever
+  // intelligence provider the user configured.
+  | "summaryFormat"
+  // Cloud automation actions and the three services below use Anarlog's
+  // backend, so they stay billable.
+  | "automationCloudActions"
   | "sync"
   | "team"
   | "cloudApi";
@@ -25,6 +31,8 @@ const RUNS_LOCALLY: ReadonlySet<ForkGatedFeature> = new Set([
   "dictionary",
   "appIcon",
   "automations",
+  "playbackSpeed",
+  "summaryFormat",
 ]);
 
 export function runsLocally(feature: ForkGatedFeature): boolean {

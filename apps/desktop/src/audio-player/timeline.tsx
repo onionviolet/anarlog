@@ -6,7 +6,7 @@ import { cn } from "@anlg/utils";
 import { useAudioPlayer, useAudioTime } from "./provider";
 import { TimelineMeta, TimelineShell } from "./timeline-shell";
 
-import { useBillingAccess } from "~/auth/billing-context";
+import { useFeatureAccess } from "~/auth/local-entitlements";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -16,7 +16,7 @@ export function Timeline({
 }: {
   contentClassName?: string;
 } = {}) {
-  const { isPro } = useBillingAccess();
+  const playbackSpeedAllowed = useFeatureAccess("playbackSpeed");
   const {
     registerContainer,
     state,
@@ -124,7 +124,7 @@ export function Timeline({
             <span>{formatTime(time.total)}</span>
           </TimelineMeta>
 
-          {isPro ? (
+          {playbackSpeedAllowed ? (
             <div className="relative shrink-0" ref={rateMenuRef}>
               <button
                 onClick={() => setShowRateMenu((prev) => !prev)}

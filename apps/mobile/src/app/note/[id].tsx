@@ -430,8 +430,7 @@ export default function NoteScreen() {
     setRestored((current) => ({
       ...note,
       titleToken: (current?.titleToken ?? 0) + 1,
-      bodyToken:
-        (current?.bodyToken ?? 0) + (note.bodyText === null ? 0 : 1),
+      bodyToken: (current?.bodyToken ?? 0) + (note.bodyText === null ? 0 : 1),
     }));
   };
 

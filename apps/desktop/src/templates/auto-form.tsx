@@ -25,8 +25,8 @@ import { cn } from "@anlg/utils";
 
 import { AutoFormatExamplesDialog } from "./auto-format-examples-dialog";
 
-import { useBillingAccess } from "~/auth/billing-context";
-import { PlanGate, useNotifyPlanRequired } from "~/settings/plan-gate";
+import { useFeatureAccess } from "~/auth/local-entitlements";
+import { PlanGate } from "~/settings/plan-gate";
 import { setSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 
@@ -75,8 +75,7 @@ export function AutoFormatForm({
   formatOverride: string;
 }) {
   const { t } = useLingui();
-  const billing = useBillingAccess();
-  const notifyPlanRequired = useNotifyPlanRequired();
+  const summaryFormatAllowed = useFeatureAccess("summaryFormat");
   const editorRef = useRef<PromptEditorHandle>(null);
   const [showExamplesDialog, setShowExamplesDialog] = useState(false);
   const selectedTemplateId = useConfigValue("selected_template_id");
@@ -113,11 +112,6 @@ export function AutoFormatForm({
   const form = useForm({
     defaultValues: { format: initialFormat },
     onSubmit: async ({ value }) => {
-      if (!billing.isPro) {
-        notifyPlanRequired("pro");
-        return;
-      }
-
       const stored = await saveMutation.mutateAsync(value.format);
       const nextFormat = stored || defaultFormat;
       form.reset({ format: nextFormat });
@@ -126,11 +120,6 @@ export function AutoFormatForm({
   });
 
   const resetToDefault = async () => {
-    if (!billing.isPro) {
-      notifyPlanRequired("pro");
-      return;
-    }
-
     await saveMutation.mutateAsync(defaultFormat);
     form.reset({ format: defaultFormat });
     editorRef.current?.setValue(defaultFormat);
@@ -238,10 +227,6 @@ export function AutoFormatForm({
               variant="outline"
               className="shrink-0"
               onClick={() => {
-                if (!billing.isPro) {
-                  notifyPlanRequired("pro");
-                  return;
-                }
                 setShowExamplesDialog(true);
               }}
             >
@@ -250,7 +235,7 @@ export function AutoFormatForm({
             </Button>
           </div>
 
-          <PlanGate plan="pro" allowed={billing.isPro}>
+          <PlanGate plan="pro" allowed={summaryFormatAllowed}>
             <div className="flex flex-col gap-5">
               <form.Field name="format">
                 {(field) => (

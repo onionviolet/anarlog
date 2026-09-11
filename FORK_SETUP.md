@@ -6,11 +6,12 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 
 ---
 
-## Status, 2026-09-04
+## Status, 2026-09-11
 
-- **Fork synced.** `main` fast-forwarded 1485 commits to upstream `3e4b7f95a`, pushed to `origin`. Fork and upstream are identical; there are no local commits to lose.
+- **Refresh integrated locally.** `refactor/local-first-upstream-refresh` starts from upstream `82f389d6ac` and replays the fork's policy, build, and diarization work. It has not been pushed or installed yet.
+- **Upstream reliability absorbed.** The refresh includes the recording recovery, provider validation, storage relocation, editor undo, privacy, Bluetooth microphone, and OpenRouter diarization work shipped since the previous fork point.
 - **Remote fixed.** `origin` pointed at the retired `wchen17` handle and now points at `onionviolet`. GitHub redirects the old URL, so this was silent rather than broken, which is exactly why it survived.
-- **App installed and running:** release `desktop_v1.4.19`, signed and notarized by Fastrepl, Inc. (Team `6SLY7V277V`), checksum matched against the published `.sha256`. Nothing was compiled to get there.
+- **Installed app state is older than this branch.** The last recorded installed release is `desktop_v1.4.19`; the refreshed fork still needs a build and live macOS acceptance pass.
 - **Prior state found:** an older build (`1.0.47`, June) with two test sessions in `~/Library/Application Support/anarlog`. STT was set to `soniqo-parakeet-streaming` and the LLM provider was `ollama` with **no model selected**, so summaries never ran. Nothing was deleted.
 
 ## What this fork is for, set 2026-09-04
@@ -21,20 +22,23 @@ Upstream is MIT and the local pipeline is mostly free already, but a few feature
 
 > A feature is billable only when using it consumes Anarlog's servers.
 
-So **Sync, Teams and the Cloud API stay gated**, because they are served by someone else's infrastructure and unlocking them would only produce confusing failures. **Dictionary, app icons and Automations are ungated**, because they execute here, against local models or against the user's own Linear, Notion and GitHub credentials.
+So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, because they are served by someone else's infrastructure and unlocking them would only produce confusing failures. **Dictionary, app icons, playback speed, summary-format editing, automation drafts, and Markdown-export automations are ungated** because they execute on this machine.
 
-`branch: local-first-no-gates`
+`branch: refactor/local-first-upstream-refresh`
 
 | Feature | Upstream | Here | Why |
 |---|---|---|---|
 | Dictionary | Pro | free | Feeds STT keyword biasing and the local title and enhance transforms |
 | App icon | Pro | free | Cosmetic, resolved from bundled assets |
-| Automations | Pro | free | Runs on this machine against the user's own third-party accounts |
+| Playback speed | Pro | free | Changes the local WaveSurfer player |
+| Summary-format editing | Pro | free | Stores a local template used with the configured model |
+| Automation drafts and Markdown export | Pro | free | Stored and executed locally |
+| Slack, Linear, and Notion automation actions | Pro | Pro | Use Anarlog's API, Supabase session, and Nango connections |
 | Sync, Teams, Cloud API | Pro | Pro | Anarlog's servers do the work |
 
-**One finding worth the whole patch: Automations were gated on a login, not just on payment.** Their controls waited on `billing.isReady`, which is derived from a query that is disabled without a session, so it never resolves while signed out and the buttons stayed dead. An ungated feature cannot wait on billing claims, so `billingReady` now short-circuits.
+**Automation access is split at the actual transport boundary.** Draft editing and Markdown export do not wait on billing claims. Enabling Slack, Linear, or Notion actions still requires paid access because their implementations call Anarlog's backend rather than those services directly.
 
-**Verified, and the honest limits.** `pnpm -F desktop typecheck` clean, `oxlint` clean with no new warnings against a 206-warning baseline, `dprint check` clean, `i18n:check` clean, and 3,927 desktop tests pass. Ten `devtools-bar` tests fail, and they fail identically on unmodified upstream, so they are not from this change. **The front end now builds for real:** `turbo build --filter=@anlg/desktop` succeeds, so this change compiles into a production bundle and not only into a type check. **The Rust side is still uncompiled** because the Metal compiler is missing, and nobody has seen the ungated settings running in the app.
+**Automated verification passed for the 2026-09-11 refresh.** Formatting, desktop typecheck and lint, all 4,292 desktop tests, the focused entitlement tests, generated locale stability, `cargo check`, and 54 affected Rust package tests are green. The branch still needs a production build and live macOS recording/provider checks before installation. A repo-wide TypeScript sweep also reaches an unrelated upstream `@anlg/supabase` failure because its type environment omits browser globals such as `fetch`, `URL`, and `Blob`; the affected desktop typecheck passes.
 
 ## Rebuilding without the ceremony
 

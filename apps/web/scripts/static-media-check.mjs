@@ -87,7 +87,9 @@ if (localDirExists) {
   }
 }
 
-console.log(`Checking ${supabaseUrls.size} referenced Supabase blog asset URL(s)...`);
+console.log(
+  `Checking ${supabaseUrls.size} referenced Supabase blog asset URL(s)...`,
+);
 const missing = [];
 const urlList = [...supabaseUrls];
 const results = await Promise.allSettled(
@@ -103,7 +105,9 @@ results.forEach((result, index) => {
 });
 
 if (missing.length > 0) {
-  console.error(`${missing.length} referenced Supabase blog asset(s) did not resolve:`);
+  console.error(
+    `${missing.length} referenced Supabase blog asset(s) did not resolve:`,
+  );
   for (const item of missing) console.error(`  - ${item.url} (${item.reason})`);
   process.exitCode = 1;
 }

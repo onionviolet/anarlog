@@ -74,6 +74,16 @@
 
 **Relationship to earlier entries:** supersedes the fork's original 2026-06-24 goal of unlocking hidden multilingual speech-to-text models, which upstream met independently. The old goal is not deleted; it survives in `FORK_SETUP.md` with the reasoning intact.
 
+#### Interpretation recorded 2026-09-11
+
+**Status:** active; corrects the 2026-09-04 automation transport assumption.
+
+**Current interpretation:** "local" is decided by the execution path, not by where its controls appear. Playback speed, summary-format editing, automation drafts, and Markdown export run locally and stay available without payment or sign-in. Slack, Linear, and Notion automation actions currently use Anarlog's API, Supabase session, and Nango connections, so they remain gated until the fork implements a direct local connection path.
+
+**Planning effect:** `apps/desktop/src/auth/local-entitlements.ts` separates local automation access from `automationCloudActions`. The automation UI permits local drafting and Markdown export while retaining the cloud-action gate.
+
+**Relationship to earlier interpretation:** replaces the inference that third-party automations did not involve Anarlog infrastructure. The verbatim goal and local-first rule are unchanged.
+
 ## Interpretation pointers
 
 These files interpret, but do not replace, the statements above.

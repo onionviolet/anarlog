@@ -305,21 +305,23 @@ function CustomWorkflowDetails({
   onDelete: () => void;
 }) {
   const { t } = useLingui();
-  const allowed = useFeatureAccess("automations");
+  const cloudActionsAllowed = useFeatureAccess("automationCloudActions");
   const billing = useBillingAccess();
-  // Billing claims never resolve while signed out, so an ungated feature
-  // must not wait on them.
-  const billingReady = allowed || billing.isReady;
   const notifyPlanRequired = useNotifyPlanRequired();
   const workflows = useAutomationWorkflows();
   const saveWorkflow = useSaveWorkflow();
+  const runsLocally =
+    workflow.steps.length > 0 &&
+    workflow.steps.every((step) => step.type === "markdown_export");
+  const canEnable = runsLocally || cloudActionsAllowed;
+  const accessReady = runsLocally || billing.isReady;
 
   const persist = (next: AutomationWorkflow) => {
     saveWorkflow.mutate({ workflows, next });
   };
 
   const handleEnable = (enabled: boolean) => {
-    if (enabled && !allowed) {
+    if (enabled && !canEnable) {
       notifyPlanRequired("pro");
       return;
     }
@@ -345,7 +347,7 @@ function CustomWorkflowDetails({
               size="sm"
               variant="outline"
               onClick={() => handleEnable(false)}
-              disabled={!billingReady || saveWorkflow.isPending}
+              disabled={saveWorkflow.isPending}
             >
               <Trans>Disable</Trans>
             </Button>
@@ -355,12 +357,12 @@ function CustomWorkflowDetails({
               size="sm"
               onClick={() => handleEnable(true)}
               disabled={
-                !billingReady ||
+                !accessReady ||
                 saveWorkflow.isPending ||
-                (allowed && !isWorkflowReady(workflow))
+                (canEnable && !isWorkflowReady(workflow))
               }
               title={
-                allowed && !isWorkflowReady(workflow)
+                canEnable && !isWorkflowReady(workflow)
                   ? t`Add and configure at least one action first.`
                   : undefined
               }
@@ -434,11 +436,8 @@ function useEnsuredWorkflow({
 
 function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   const { t } = useLingui();
-  const allowed = useFeatureAccess("automations");
+  const cloudActionsAllowed = useFeatureAccess("automationCloudActions");
   const billing = useBillingAccess();
-  // Billing claims never resolve while signed out, so an ungated feature
-  // must not wait on them.
-  const billingReady = allowed || billing.isReady;
   const notifyPlanRequired = useNotifyPlanRequired();
   const starter = useStarterAutomations().find((item) => item.id === starterId);
   const [showPreview, setShowPreview] = useState(false);
@@ -491,17 +490,16 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         return t`Choose a Notion page first.`;
     }
   })();
+  const runsLocally = starterId === "markdown-export";
+  const canEnable = runsLocally || cloudActionsAllowed;
+  const accessReady = runsLocally || billing.isReady;
 
   const handleSaveDraft = () => {
-    if (!allowed) {
-      notifyPlanRequired("pro");
-      return;
-    }
     saveDraftMutation.mutate();
   };
 
   const handleEnable = () => {
-    if (!allowed) {
+    if (!canEnable) {
       notifyPlanRequired("pro");
       return;
     }
@@ -576,7 +574,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
               type="button"
               size="sm"
               onClick={handleSaveDraft}
-              disabled={!billingReady || saveDraftMutation.isPending}
+              disabled={saveDraftMutation.isPending}
             >
               <FloppyDisk size={14} />
               <Trans>Save draft</Trans>
@@ -587,7 +585,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                 size="sm"
                 variant="outline"
                 onClick={() => setEnabledMutation.mutate({ enabled: false })}
-                disabled={!billingReady || setEnabledMutation.isPending}
+                disabled={setEnabledMutation.isPending}
               >
                 <Trans>Disable</Trans>
               </Button>
@@ -597,11 +595,11 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
                 size="sm"
                 onClick={handleEnable}
                 disabled={
-                  !billingReady ||
+                  !accessReady ||
                   setEnabledMutation.isPending ||
-                  (allowed && !isReady)
+                  (canEnable && !isReady)
                 }
-                title={allowed && !isReady ? readinessHint : undefined}
+                title={canEnable && !isReady ? readinessHint : undefined}
               >
                 <Lightning size={14} />
                 <Trans>Save &amp; enable</Trans>
