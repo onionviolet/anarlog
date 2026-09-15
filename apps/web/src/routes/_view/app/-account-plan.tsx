@@ -1,18 +1,43 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 
-import { getFixedPlanPrice } from "@anlg/pricing";
+import {
+  type BillingPeriod,
+  getFixedPlanPrice,
+  MARKETING_PLAN_TIERS,
+} from "@anlg/pricing";
+import { Check, Plugs } from "@anlg/ui/components/icons";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@anlg/ui/components/ui/carousel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
 import { authInputClassName } from "@/components/auth-shell";
-import { getAccountSubscription } from "@/functions/billing";
+import {
+  createRetentionOffer,
+  getAccountSubscription,
+} from "@/functions/billing";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { applyYcPerk } from "@/functions/yc-perk";
 import {
   accountWorkspacePlanQueryKey,
   fetchWorkspacePlan,
   getAccountPlanCopy,
+  getAccountPlanPriceText,
 } from "@/lib/account-plan";
 import { validateYcPerkApplyValue } from "@/lib/yc-perk";
 
@@ -39,6 +64,7 @@ export function PlanSection({
 }: {
   perk?: "applied" | "claimed" | "invalid";
 }) {
+  const queryClient = useQueryClient();
   const { data, isPending } = useAccountSession();
   const billing = data?.billing;
   const workspacePlanQuery = useQuery({
@@ -101,8 +127,6 @@ export function PlanSection({
     isTrialing: billing?.isTrialing === true,
     isPaused: billing?.isPaused === true,
     isPaid: billing?.isPaid === true,
-    isLite: billing?.isLite,
-    isPro: billing?.isPro,
     trialDaysRemaining: billing?.trialDaysRemaining ?? null,
     trialEnd: billing?.trialEnd ?? null,
     cancelAtPeriodEnd,
@@ -123,27 +147,40 @@ export function PlanSection({
     !isCheckingPlan &&
     (workspacePlanQuery.isError || !workspacePlanQuery.isSuccess);
 
+  const [downgradeOpen, setDowngradeOpen] = useState(false);
+  const retentionOffer = useMutation({
+    mutationFn: () => createRetentionOffer(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: accountSubscriptionQueryKey,
+      });
+      setDowngradeOpen(false);
+    },
+  });
+
+  const currentPlanId = workspacePlan ?? (billing?.isPaid ? "pro" : "free");
+
   return (
     <div className={accountCardClassName}>
       <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
         {isCheckingPlan ? (
-          <p className="text-sm leading-6 text-[#756b5d]">
+          <p className="text-color-muted text-sm leading-6">
             Checking your plan...
           </p>
         ) : couldNotVerifyPlan ? (
-          <p className="text-sm leading-6 text-[#756b5d]">
+          <p className="text-color-muted text-sm leading-6">
             Couldn't verify your plan. Refresh to try again.
           </p>
         ) : (
           <>
             <div>
-              <p className="text-base font-medium text-[#181613]">
+              <p className="text-color text-base font-medium">
                 You're on{" "}
-                <mark className="bg-[#fff0b3] px-1 font-semibold">
+                <mark className="brand-yellow px-1 font-semibold">
                   {planLabel}
                 </mark>
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+              <p className="text-color-muted mt-1 text-sm leading-6">
                 {planDetail}
               </p>
             </div>
@@ -166,6 +203,14 @@ export function PlanSection({
                 >
                   Manage billing
                 </Link>
+                {billing?.isPro && !billing?.isTrialing ? (
+                  <button
+                    onClick={() => setDowngradeOpen(true)}
+                    className={accountPillSecondaryClassName}
+                  >
+                    Downgrade
+                  </button>
+                ) : null}
               </div>
             ) : billing?.isPaused ? (
               <Link
@@ -208,12 +253,24 @@ export function PlanSection({
           </>
         )}
       </div>
+      {!isCheckingPlan && !couldNotVerifyPlan ? (
+        <PlanComparison currentPlanId={currentPlanId} />
+      ) : null}
       {!isCheckingPlan &&
       !couldNotVerifyPlan &&
       !isWorkspacePlan &&
       !hasYcPerk ? (
         <YcPerkApplyForm perk={perk} />
       ) : null}
+      <DowngradeDialog
+        open={downgradeOpen}
+        onOpenChange={setDowngradeOpen}
+        onAcceptOffer={() => retentionOffer.mutate()}
+        onProceedToDowngrade={() => setDowngradeOpen(false)}
+        isApplyingOffer={retentionOffer.isPending}
+        offerError={retentionOffer.error}
+        hasYcPerk={hasYcPerk}
+      />
     </div>
   );
 }
@@ -274,8 +331,8 @@ function YcPerkApplyForm({
 
   if (applied) {
     return (
-      <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
-        <p className="text-sm leading-6 text-[#756b5d]">
+      <div className="border-color-subtle border-t px-6 py-5 sm:px-8">
+        <p className="text-color-muted text-sm leading-6">
           YC founder year is applied to personal Pro.
         </p>
       </div>
@@ -283,8 +340,8 @@ function YcPerkApplyForm({
   }
 
   return (
-    <div className="border-t border-[#ede7dc] px-6 py-5 sm:px-8">
-      <p className="text-sm leading-6 text-[#756b5d]">
+    <div className="border-color-subtle border-t px-6 py-5 sm:px-8">
+      <p className="text-color-muted text-sm leading-6">
         YC founder? Paste your verification link or Pro code.
       </p>
       <form
@@ -343,20 +400,20 @@ function YcPerkApplyForm({
           {errorMessage}
         </p>
       ) : null}
-      <p className="mt-2 text-sm text-[#918a80]">
+      <p className="text-color-muted mt-2 text-sm">
         Need a verification link?{" "}
         <a
           href="https://www.ycombinator.com/verify"
           target="_blank"
           rel="noreferrer"
-          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+          className="hover:text-color underline decoration-[var(--color-border)] underline-offset-4 transition"
         >
           Get one from YC
         </a>
         {" · "}
         <Link
           to="/yc/"
-          className="underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+          className="hover:text-color underline decoration-[var(--color-border)] underline-offset-4 transition"
         >
           Learn more
         </Link>
@@ -379,4 +436,218 @@ function FieldError({ errors }: { errors: Array<unknown> }) {
       {message}
     </p>
   ) : null;
+}
+
+function PlanComparison({
+  currentPlanId,
+}: {
+  currentPlanId: "free" | "pro" | "team" | "enterprise";
+}) {
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+
+  return (
+    <div className="border-color-subtle border-t p-6 sm:p-8">
+      <Carousel
+        key={currentPlanId}
+        opts={{
+          align: "start",
+          startIndex: Math.max(
+            0,
+            MARKETING_PLAN_TIERS.findIndex((tier) => tier.id === currentPlanId),
+          ),
+        }}
+        aria-label="Available plans"
+      >
+        <div className="mb-4 flex min-h-8 flex-wrap items-center justify-between gap-3">
+          <p className="text-color text-sm font-medium">Available plans</p>
+          <div className="flex items-center gap-2">
+            <div
+              role="group"
+              aria-label="Billing period"
+              className="surface-subtle border-color-subtle flex rounded-full border p-0.5"
+            >
+              {(["monthly", "yearly"] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  aria-pressed={billingPeriod === period}
+                  onClick={() => setBillingPeriod(period)}
+                  className={cn([
+                    "rounded-full px-3 py-1 text-xs font-medium transition",
+                    billingPeriod === period
+                      ? "bg-surface text-color shadow-sm"
+                      : "text-color-muted hover:text-color",
+                  ])}
+                >
+                  {period === "monthly" ? "Monthly" : "Yearly"}
+                </button>
+              ))}
+            </div>
+            <CarouselPrevious
+              className="static translate-y-0"
+              aria-label="Previous plan"
+            />
+            <CarouselNext
+              className="static translate-y-0"
+              aria-label="Next plan"
+            />
+          </div>
+        </div>
+        <CarouselContent>
+          {MARKETING_PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentPlanId;
+            const priceText = getAccountPlanPriceText(
+              tier.price,
+              billingPeriod,
+            );
+
+            return (
+              <CarouselItem
+                key={tier.id}
+                className="basis-full sm:basis-1/2"
+                aria-label={tier.name}
+              >
+                <div
+                  className={cn([
+                    "h-full rounded-2xl border p-4",
+                    isCurrent
+                      ? "bg-surface border-[var(--color-fg)]"
+                      : "border-color-subtle bg-white",
+                  ])}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className={cn([
+                        "font-mono text-sm font-medium",
+                        isCurrent ? "text-color" : "text-color-muted",
+                      ])}
+                    >
+                      {tier.name}
+                    </p>
+                    {isCurrent && (
+                      <span className="brand-yellow text-color rounded-full px-2 py-0.5 text-xs font-medium">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    aria-live="polite"
+                    className="text-color-muted mt-1 text-sm"
+                  >
+                    {priceText}
+                  </p>
+                  <ul className="mt-3 space-y-1.5">
+                    {tier.features.slice(0, 3).map((feature, i) => (
+                      <li
+                        key={i}
+                        className="text-color-muted flex items-start gap-2 text-xs"
+                      >
+                        {feature.included ? (
+                          <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" />
+                        ) : (
+                          <Plugs className="text-color-muted mt-0.5 size-3.5 shrink-0" />
+                        )}
+                        {feature.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+      </Carousel>
+      <p className="text-color-muted mt-5 text-sm">
+        <Link to="/yc/" className="text-color underline underline-offset-4">
+          Are you a YC founder?
+        </Link>{" "}
+        Get one year of personal Pro free.
+      </p>
+    </div>
+  );
+}
+
+function DowngradeDialog({
+  open,
+  onOpenChange,
+  onAcceptOffer,
+  onProceedToDowngrade,
+  isApplyingOffer,
+  offerError,
+  hasYcPerk,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAcceptOffer: () => void;
+  onProceedToDowngrade: () => void;
+  isApplyingOffer: boolean;
+  offerError: Error | null;
+  hasYcPerk: boolean;
+}) {
+  const navigate = useNavigate();
+  const lostFeatures = MARKETING_PLAN_TIERS.find(
+    (tier) => tier.id === "pro",
+  )?.features.filter(
+    (feature) =>
+      !feature.label.startsWith("Everything in") &&
+      MARKETING_PLAN_TIERS.find((tier) => tier.id === "free")?.features.every(
+        (freeFeature) => freeFeature.label !== feature.label,
+      ),
+  );
+
+  const handleProceed = () => {
+    onProceedToDowngrade();
+    navigate({ to: "/app/portal/" });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Downgrade to Free?</DialogTitle>
+          <DialogDescription>
+            Free is local-first and free forever, but you will lose these Pro
+            benefits.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {lostFeatures?.slice(0, 6).map((feature, i) => (
+            <div
+              key={i}
+              className="text-color-muted flex items-start gap-2 text-sm"
+            >
+              <Plugs className="text-color-muted mt-0.5 size-4 shrink-0" />
+              {feature.label}
+            </div>
+          ))}
+          {offerError && (
+            <p className="text-sm text-red-600" role="alert">
+              {offerError.message || "Could not apply the offer. Try again."}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <button
+            onClick={handleProceed}
+            disabled={isApplyingOffer}
+            className={cn([accountPillSecondaryClassName, "w-full sm:w-auto"])}
+          >
+            Continue to Free
+          </button>
+          {!hasYcPerk && (
+            <button
+              onClick={onAcceptOffer}
+              disabled={isApplyingOffer}
+              className={cn([
+                accountPillPrimaryClassName,
+                "w-full bg-stone-700 hover:bg-stone-600 sm:w-auto",
+              ])}
+            >
+              {isApplyingOffer ? "Applying..." : "Stay on Pro — 2 months free"}
+            </button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
