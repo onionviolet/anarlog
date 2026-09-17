@@ -1,7 +1,7 @@
 import AVFoundation
 import ApplicationServices
-import CoreGraphics
 import Contacts
+import CoreGraphics
 import EventKit
 import Foundation
 import IOKit.hid
@@ -51,8 +51,8 @@ case "microphone":
   @unknown default: print("unknown")
   }
 case "systemAudio":
-  let TCC_PATH = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
-  guard let handle = dlopen(TCC_PATH, RTLD_NOW),
+  let tccPath = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
+  guard let handle = dlopen(tccPath, RTLD_NOW),
     let sym = dlsym(handle, "TCCAccessPreflight")
   else {
     print("error")
@@ -68,8 +68,8 @@ case "systemAudio":
   default: print("unknown")
   }
 case "screenRecording":
-  let TCC_PATH = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
-  guard let handle = dlopen(TCC_PATH, RTLD_NOW),
+  let tccPath = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
+  guard let handle = dlopen(tccPath, RTLD_NOW),
     let sym = dlsym(handle, "TCCAccessPreflight")
   else {
     print("error")
