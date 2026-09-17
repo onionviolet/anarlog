@@ -455,7 +455,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Create brief" })).toBeNull();
   });
 
-  it("hides the title input after the meeting is over", () => {
+  it("keeps the title editable after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -485,13 +485,15 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
     expect(screen.getByRole("group", { name: "Session note views" })).not.toBe(
       null,
     );
   });
 
-  it("hides the title input after an ad hoc recording", () => {
+  it("keeps the title editable after an ad hoc recording", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -509,7 +511,9 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
   });
 
   it("shows an editable title on the memo tab before recording", () => {
@@ -533,7 +537,7 @@ describe("OuterHeader", () => {
     expect(title.getAttribute("placeholder")).toBe("Untitled");
   });
 
-  it("hides the title input on the memo tab after recording", () => {
+  it("keeps the title editable on the memo tab after recording", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -551,10 +555,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
   });
 
-  it("hides the title input on the transcript tab", () => {
+  it("keeps the title editable on the transcript tab after recording", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -572,7 +578,9 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
   });
 
   it.each(["active", "running_batch", "finalizing"] as const)(

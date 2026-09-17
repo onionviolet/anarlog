@@ -72,7 +72,7 @@ export function OuterHeader({
     sessionMode === "active" || sessionMode === "running_batch";
   const isLiveMeeting = isRecording || sessionMode === "finalizing";
   const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
-  const showTitleInput = Boolean(tab) && !isLiveMeeting && !meetingOver;
+  const showTitleInput = Boolean(tab) && !isLiveMeeting;
 
   return (
     <div
