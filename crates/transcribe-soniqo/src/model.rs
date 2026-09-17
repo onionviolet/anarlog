@@ -127,9 +127,11 @@ impl SoniqoModel {
 
     pub const fn description(self) -> &'static str {
         match self {
-            Self::ParakeetStreaming => "Realtime transcription for 25 European languages.",
+            Self::ParakeetStreaming => {
+                "Realtime preview for 25 European languages with automatic batch repair when the live transcript degrades."
+            }
             Self::ParakeetBatch => {
-                "Batch transcription with on-device speaker labels for 25 European languages."
+                "Higher-quality post-recording transcription with on-device speaker labels for 25 European languages."
             }
             Self::Omnilingual => "Multilingual batch transcription.",
             Self::Qwen3Small => "Multilingual batch transcription.",
