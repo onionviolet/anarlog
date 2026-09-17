@@ -185,7 +185,7 @@ describe("buildInputRules", () => {
 });
 
 describe("buildKeymap", () => {
-  it("does not handle Shift+Enter as a hard break shortcut", () => {
+  it("inserts a hard break with Shift+Enter", () => {
     const doc = schema.node("doc", null, [
       schema.node("paragraph", null, [schema.text("hello")]),
     ]);
@@ -193,8 +193,16 @@ describe("buildKeymap", () => {
       shiftKey: true,
     });
 
-    expect(handled).not.toBe(true);
-    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+    expect(handled).toBe(true);
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "hello" }, { type: "hardBreak" }],
+        },
+      ],
+    });
   });
 
   it("merges task item text backward without changing the list structure", () => {

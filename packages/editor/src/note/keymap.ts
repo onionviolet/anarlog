@@ -512,6 +512,18 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   keys["Mod-i"] = toggleMark(schema.marks.italic);
   keys["Mod-u"] = toggleMark(schema.marks.underline);
   keys["Mod-`"] = toggleMark(schema.marks.code);
+  keys["Shift-Enter"] = (state, dispatch) => {
+    const { $from } = state.selection;
+    if ($from.parent.type.spec.code) return false;
+    if (dispatch) {
+      dispatch(
+        state.tr
+          .replaceSelectionWith(schema.nodes.hardBreak.create())
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  };
 
   const exitCodeBlockOnEmptyLine: Command = (state, dispatch) => {
     const { $from } = state.selection;
