@@ -1,6 +1,8 @@
 import SegmentedControl from "@expo/ui/community/segmented-control";
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
+import { usePowerState } from "expo-battery";
+import { useKeepAwake } from "expo-keep-awake";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -19,6 +21,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
+import { recordingPowerWarning } from "@/audio/recording-power";
 import { useAuth } from "@/auth/context";
 import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
@@ -78,6 +81,11 @@ import { useKeyboardVisible } from "@/lib/use-keyboard-visible";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
+
+function RecordingKeepAwake() {
+  useKeepAwake("anarlog-mobile-recording");
+  return null;
+}
 
 function BodyEditor({
   accessoryId,
@@ -288,6 +296,10 @@ export default function NoteScreen() {
   >(null);
   const keyboardVisible = useKeyboardVisible();
   const recorder = useSessionRecorder(id, listening);
+  const powerState = usePowerState();
+  const powerWarning = recordingPowerWarning(powerState);
+  const keepAwake =
+    recorder.phase === "starting" || recorder.phase === "recording";
   const [audioRestoreError, setAudioRestoreError] = useState<string | null>(
     null,
   );
@@ -770,6 +782,7 @@ export default function NoteScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {keepAwake && <RecordingKeepAwake />}
       <View style={styles.header}>
         <IconButton
           accessibilityLabel="Back"
@@ -860,7 +873,9 @@ export default function NoteScreen() {
                           : "Your meeting summary will appear here. Your memos are in the Memos tab."}
                 </Text>
               )}
-              {!active && needsTranscription && transcription !== "running" && (
+              {!active &&
+                needsTranscription &&
+                transcription !== "running" && (
                 <>
                   {!localAudioAvailable && (
                     <RemoteAudioCard
@@ -1107,6 +1122,8 @@ export default function NoteScreen() {
           failure={recorder.failure}
           amplitude={recorder.amplitude}
           durationMs={recorder.durationMs}
+          liveStatus={recorder.liveStatus}
+          powerWarning={powerWarning}
           onStop={() => void handleStop()}
           onRetry={() => void handleRetryRecording()}
           onOpenSettings={() => void handleOpenSettings()}

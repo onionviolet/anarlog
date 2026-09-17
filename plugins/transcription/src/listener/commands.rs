@@ -4,6 +4,7 @@ use crate::listener::ListenerPluginExt;
 use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState};
 use anlg_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 use anlg_transcription_core::listener2 as listener2_core;
+use tauri_plugin_settings::SettingsPluginExt;
 
 #[tauri::command]
 #[specta::specta]
@@ -89,6 +90,18 @@ pub async fn get_capture_snapshot<R: tauri::Runtime>(
         .get_capture_snapshot()
         .await
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn recording_safety_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<crate::recording_safety::RecordingSafetyStatus, String> {
+    let vault_base = app
+        .settings()
+        .vault_base()
+        .map_err(|error| error.to_string())?;
+    Ok(crate::recording_safety::status(vault_base.as_ref()))
 }
 
 #[tauri::command]

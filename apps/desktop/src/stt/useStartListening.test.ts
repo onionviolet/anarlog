@@ -51,6 +51,7 @@ const {
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
+  recordingSafetyStatusMock,
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
@@ -107,6 +108,7 @@ const {
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
+  recordingSafetyStatusMock: vi.fn(),
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
@@ -142,6 +144,7 @@ vi.mock("@anlg/plugin-db", () => ({
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
+    recordingSafetyStatus: recordingSafetyStatusMock,
   },
 }));
 
@@ -308,11 +311,13 @@ describe("getPostCaptureAction", () => {
         audioPath: "/tmp/session.wav",
         liveTranscriptionActive: false,
         needsBatchRepair: true,
+        liveTranscriptDegraded: true,
         transcriptWriteFailed: true,
       }),
     ).toEqual([
       "live_transcription_unavailable",
       "live_stream_incomplete",
+      "live_stream_degraded",
       "transcript_persistence_failed",
     ]);
   });
@@ -399,6 +404,20 @@ describe("getPostCaptureAction", () => {
           audioPath: "/tmp/session.wav",
           liveTranscriptionActive: true,
           needsBatchRepair: true,
+        },
+        true,
+      ),
+    ).toBe("batch_then_enhance");
+  });
+
+  test("repairs a complete live transcript when repetition indicates degraded output", () => {
+    expect(
+      getPostCaptureAction(
+        {
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+          liveTranscriptDegraded: true,
         },
         true,
       ),
@@ -532,6 +551,10 @@ describe("useStartListening", () => {
     isSupportedLanguagesLiveMock.mockResolvedValue({
       status: "ok",
       data: true,
+    });
+    recordingSafetyStatusMock.mockResolvedValue({
+      status: "ok",
+      data: { available_bytes: 10 * 1024 * 1024 * 1024, low_power_mode: false },
     });
     listMicUsingApplicationsMock.mockResolvedValue({
       status: "ok",
@@ -2646,6 +2669,48 @@ describe("useStartListening", () => {
       "session-1",
     );
     consoleError.mockRestore();
+  });
+
+  test("replaces a repetition-degraded live transcript from finalized audio", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: Array.from({ length: 250 }, (_, index) => ({
+        id: `word-${index}`,
+        text: "repeated",
+        start_ms: index * 100,
+        end_ms: index * 100 + 100,
+        channel: 0,
+      })),
+      replaced_ids: [],
+      partials: [],
+    });
+
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 25,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
+      notifyOnCompletion: false,
+      promotion: {
+        scope: "current_capture",
+        audioOffsetMs: 0,
+        replaceTranscriptId: "generated-id",
+        startedAt: expect.any(Number),
+      },
+    });
   });
 
   describe("summaries during post-stop repair", () => {

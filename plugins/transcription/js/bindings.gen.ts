@@ -78,6 +78,14 @@ async getCaptureSnapshot() : Promise<Result<CaptureSnapshot, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async recordingSafetyStatus() : Promise<Result<RecordingSafetyStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|recording_safety_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isSupportedLanguagesLive(provider: string, model: string | null, languages: string[]) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|is_supported_languages_live", { provider, model, languages }) };
@@ -240,6 +248,7 @@ export type LiveTranscriptSegment = { id: string; key: SegmentKey; start_ms: num
 export type LiveTranscriptSegmentDelta = { upserts: LiveTranscriptSegment[]; removed_ids: string[] }
 export type PartialWord = { text: string; start_ms: number; end_ms: number; channel: number; speaker_index?: number | null }
 export type ProvisionalSpeakerLabel = { name: string; human_id: string | null; reason: SpeakerResolutionReason }
+export type RecordingSafetyStatus = { available_bytes: number | null; low_power_mode: boolean }
 export type RenderTranscriptHuman = { human_id: string; name: string }
 export type RenderTranscriptInput = { started_at: number | null; words: RenderTranscriptWordInput[]; assignments: IdentityAssignment[] }
 export type RenderTranscriptRequest = { speaker_context?: SpeakerContext | null; preview?: RenderedTranscriptSegment[] | null; transcripts: RenderTranscriptInput[]; participant_human_ids: string[]; self_human_id: string | null; humans: RenderTranscriptHuman[] }

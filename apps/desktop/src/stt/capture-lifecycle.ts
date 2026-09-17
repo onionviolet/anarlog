@@ -9,6 +9,7 @@ import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
 import { persistTranscriptWrite } from "./persist-retry";
 import { createTranscriptPersistenceWorker } from "./transcript-persistence-worker";
+import { isTranscriptDegradedByRepetition } from "./transcript-quality";
 import {
   canRunBatchTranscription,
   isStoppedTranscriptionError,
@@ -106,6 +107,7 @@ type PostCaptureDetails = {
   audioPath: string | null;
   liveTranscriptionActive: boolean;
   needsBatchRepair: boolean;
+  liveTranscriptDegraded?: boolean;
   refineSpeakerDiarization?: boolean;
   transcriptWriteFailed?: boolean;
 };
@@ -113,6 +115,7 @@ type PostCaptureDetails = {
 export type PostCaptureRepairReason =
   | "live_transcription_unavailable"
   | "live_stream_incomplete"
+  | "live_stream_degraded"
   | "settled_speaker_diarization"
   | "transcript_persistence_failed";
 
@@ -125,6 +128,9 @@ export function getPostCaptureRepairReasons(
   }
   if (details.needsBatchRepair) {
     reasons.push("live_stream_incomplete");
+  }
+  if (details.liveTranscriptDegraded) {
+    reasons.push("live_stream_degraded");
   }
   if (details.refineSpeakerDiarization) {
     reasons.push("settled_speaker_diarization");
@@ -142,6 +148,7 @@ export function getPostCaptureAction(
   const liveTranscriptComplete =
     details.liveTranscriptionActive &&
     !details.needsBatchRepair &&
+    !details.liveTranscriptDegraded &&
     !details.transcriptWriteFailed;
 
   if (liveTranscriptComplete && !details.refineSpeakerDiarization) {
@@ -226,6 +233,7 @@ export function useCaptureLifecycle(sessionId: string) {
       const transcriptId = recoveredMarker?.transcriptId ?? id();
       let transcriptCreated: boolean | null = recoveredMarker ? null : false;
       let transcriptTouched = false;
+      const liveTranscriptWords = new Map<string, string>();
       const startedAt = recoveredMarker?.startedAt ?? Date.now();
       const memoMd = recoveredMarker?.memo ?? session?.raw_md ?? "";
       const createdAt = recoveredMarker?.createdAt ?? new Date().toISOString();
@@ -549,11 +557,15 @@ export function useCaptureLifecycle(sessionId: string) {
           }
         }
 
+        const liveTranscriptDegraded = isTranscriptDegradedByRepetition([
+          ...liveTranscriptWords.values(),
+        ]);
         const postCaptureAction = pendingSummaryMode
           ? ("enhance_only" as const)
           : getPostCaptureAction(
               {
                 ...details,
+                liveTranscriptDegraded,
                 refineSpeakerDiarization,
                 transcriptWriteFailed: Boolean(transcriptWriteError),
               },
@@ -563,6 +575,7 @@ export function useCaptureLifecycle(sessionId: string) {
           ? []
           : getPostCaptureRepairReasons({
               ...details,
+              liveTranscriptDegraded,
               refineSpeakerDiarization,
               transcriptWriteFailed: Boolean(transcriptWriteError),
             });
@@ -923,6 +936,12 @@ export function useCaptureLifecycle(sessionId: string) {
         }
 
         transcriptTouched = true;
+        for (const wordId of delta.replaced_ids) {
+          liveTranscriptWords.delete(wordId);
+        }
+        for (const word of delta.new_words) {
+          liveTranscriptWords.set(word.id, word.text);
+        }
         transcriptPersistence.enqueue(delta);
       };
 

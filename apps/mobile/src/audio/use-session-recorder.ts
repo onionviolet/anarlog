@@ -5,6 +5,7 @@ import {
   useAudioStream,
   type AudioStreamBuffer,
 } from "expo-audio";
+import { Paths } from "expo-file-system";
 import { useCallback, useRef, useState } from "react";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
 
@@ -17,6 +18,10 @@ import {
   isRecordingStartCancelled,
   type RecorderPhase,
 } from "@/audio/recorder-status";
+import {
+  getRecordingStorageStatus,
+  isRecordingStorageCritical,
+} from "@/audio/recording-storage";
 import { SessionWavWriter } from "@/audio/session-wav-writer";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import {
@@ -37,11 +42,20 @@ import {
 const STREAM_SAMPLE_RATE = 16_000;
 const STREAM_CHANNELS = 1;
 
+function availableDiskSpace(): number | null {
+  try {
+    return Paths.availableDiskSpace;
+  } catch {
+    return null;
+  }
+}
+
 export type { RecorderPhase } from "@/audio/recorder-status";
 
 export type RecorderFailure =
   | "permission_denied"
   | "notification_permission_denied"
+  | "low_storage"
   | "start_failed"
   | "media_services_reset"
   | "native_error"
@@ -80,6 +94,7 @@ export function useSessionRecorder(
   const completionTrackedRef = useRef(false);
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
+  const nextStorageCheckMsRef = useRef(30_000);
   const captureRegisteredRef = useRef(false);
   const stopRef = useRef<() => Promise<StopResult>>(async () => "noop");
 
@@ -108,7 +123,8 @@ export function useSessionRecorder(
       }
       if (
         reason !== "permission_denied" &&
-        reason !== "notification_permission_denied"
+        reason !== "notification_permission_denied" &&
+        reason !== "low_storage"
       ) {
         captureOperationalError(error, {
           operation,
@@ -157,6 +173,26 @@ export function useSessionRecorder(
       );
       liveRef.current?.sendAudio(buffer.data);
       durationRef.current = Math.round(writer.durationMs);
+      if (durationRef.current >= nextStorageCheckMsRef.current) {
+        nextStorageCheckMsRef.current = durationRef.current + 30_000;
+        if (isRecordingStorageCritical(availableDiskSpace())) {
+          reportFailure(
+            "low_storage",
+            new Error("Recording storage reserve reached"),
+            "recording_storage_monitor",
+          );
+          setPhase("save_error");
+          try {
+            streamRef.current.stop();
+          } catch {}
+          void endMeetingRecordingActivity(sessionId).catch((activityError) => {
+            captureOperationalError(activityError, {
+              operation: "recording_live_activity_end",
+            });
+          });
+          return;
+        }
+      }
       if (activeRef.current) {
         setAmplitude(pcmAmplitude(buffer.data));
         setDurationMs(durationRef.current);
@@ -180,6 +216,7 @@ export function useSessionRecorder(
       activeRef.current && generation === startGenerationRef.current;
     completionTrackedRef.current = false;
     durationRef.current = 0;
+    nextStorageCheckMsRef.current = 30_000;
     setDurationMs(0);
     setAmplitude(0);
     setLiveStatus("connecting");
@@ -189,6 +226,19 @@ export function useSessionRecorder(
     setPhase("starting");
     registerCapture();
     try {
+      if (!getRecordingStorageStatus(availableDiskSpace()).canStart) {
+        reportFailure(
+          "low_storage",
+          new Error("Not enough free storage to start recording"),
+          "recording_storage_preflight",
+        );
+        captureAnalytics("session_start_failed", {
+          failure_stage: "low_storage",
+        });
+        unregisterCapture();
+        setPhase("error");
+        return;
+      }
       let permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
         captureAnalytics("permission_requested", {

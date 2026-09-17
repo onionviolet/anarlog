@@ -12,6 +12,7 @@ import type {
 } from "@/audio/use-session-recorder";
 import { DancingSticks } from "@/components/dancing-sticks";
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import type { LiveTranscriptionStatus } from "@/data/live-transcription";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function formatDuration(ms: number): string {
@@ -21,10 +22,27 @@ function formatDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function statusLabel(phase: RecorderPhase, durationMs: number): string {
+function statusLabel(
+  phase: RecorderPhase,
+  durationMs: number,
+  failure: RecorderFailure | null,
+  liveStatus: LiveTranscriptionStatus,
+  powerWarning: string | null,
+): string {
+  if (failure === "low_storage") {
+    return phase === "save_error"
+      ? "Storage low · save recording"
+      : "Free up storage to record";
+  }
   switch (phase) {
     case "recording":
-      return `Listening · ${formatDuration(durationMs)}`;
+      return [
+        liveStatus === "fallback" ? "Recording locally" : "Listening",
+        formatDuration(durationMs),
+        powerWarning,
+      ]
+        .filter(Boolean)
+        .join(" · ");
     case "saving":
       return "Saving recording…";
     case "unavailable":
@@ -47,6 +65,8 @@ export function ListeningSheet({
   failure,
   amplitude,
   durationMs,
+  liveStatus,
+  powerWarning,
   onStop,
   onRetry,
   onOpenSettings,
@@ -55,6 +75,8 @@ export function ListeningSheet({
   failure: RecorderFailure | null;
   amplitude: number;
   durationMs: number;
+  liveStatus: LiveTranscriptionStatus;
+  powerWarning: string | null;
   onStop: () => void;
   onRetry: () => void;
   onOpenSettings: () => void;
@@ -66,17 +88,27 @@ export function ListeningSheet({
     (failure === "permission_denied" ||
       failure === "notification_permission_denied");
   const recoverable = ["interrupted", "save_error", "error"].includes(phase);
+  const savingLowStorageRecording =
+    failure === "low_storage" && phase === "save_error";
   const handlePanelPress = permissionDenied
     ? onOpenSettings
     : recoverable
       ? onRetry
       : onStop;
-  const label = statusLabel(phase, durationMs);
+  const label = statusLabel(
+    phase,
+    durationMs,
+    failure,
+    liveStatus,
+    powerWarning,
+  );
   const actionLabel = permissionDenied
     ? "Settings"
-    : recoverable
-      ? "Retry"
-      : "Stop";
+    : savingLowStorageRecording
+      ? "Save"
+      : recoverable
+        ? "Retry"
+        : "Stop";
 
   return (
     <View style={styles.dock}>
@@ -100,9 +132,11 @@ export function ListeningSheet({
         accessibilityLabel={
           permissionDenied
             ? "Open recording settings"
-            : recoverable
-              ? "Recover recording"
-              : "Stop listening"
+            : savingLowStorageRecording
+              ? "Save recording"
+              : recoverable
+                ? "Recover recording"
+                : "Stop listening"
         }
         accessibilityState={{ disabled: phase === "saving" }}
         onPress={handlePanelPress}

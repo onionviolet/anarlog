@@ -23,6 +23,7 @@ import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
 import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { LiveCaptureRecovery } from "~/stt/live-capture-recovery";
+import { RecordingSafetyLifecycle } from "~/stt/recording-safety-lifecycle";
 import { ScheduledMeetingAutoStart } from "~/stt/scheduled-auto-start";
 import { MainListenerControlBridge } from "~/stt/window-control";
 
@@ -58,6 +59,7 @@ export function ClassicMainServices() {
       <OwnedSharedNotePublisher />
       <SharedNotePreviewAuthLifecycle />
       <LiveCaptureRecovery />
+      <RecordingSafetyLifecycle />
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
       <ToolRegistration />

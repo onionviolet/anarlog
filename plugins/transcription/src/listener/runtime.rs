@@ -5,7 +5,7 @@ use tauri_specta::Event;
 
 use crate::{
     CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, MicIsolationCache,
-    SessionStateCache, SessionStateSnapshot,
+    SessionStateCache, SessionStateSnapshot, sleep_prevention::RecordingSleepPrevention,
 };
 use anlg_transcription_core::listener::State as RootState;
 use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
@@ -16,6 +16,7 @@ pub struct TauriRuntime {
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
+    pub sleep_prevention: std::sync::Arc<RecordingSleepPrevention>,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -40,12 +41,21 @@ impl ListenerRuntime for TauriRuntime {
     fn emit_lifecycle(&self, event: anlg_transcription_core::listener::SessionLifecycleEvent) {
         use tauri_plugin_tray::TrayPluginExt;
         match &event {
-            anlg_transcription_core::listener::SessionLifecycleEvent::Active { error, .. } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Active {
+                session_id,
+                error,
+                ..
+            } => {
+                self.sleep_prevention.start(session_id);
                 let _ = self.app.tray().set_start_disabled(true);
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
             }
-            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive { .. } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive {
+                session_id,
+                ..
+            } => {
+                self.sleep_prevention.stop(session_id);
                 let app = self.app.clone();
                 tauri::async_runtime::spawn(async move {
                     match current_root_state().await {

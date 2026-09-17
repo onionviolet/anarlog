@@ -10,6 +10,10 @@ import {
   MEETING_DISCLOSURE_MESSAGE,
   startMeetingRecordingDisclosure,
 } from "./meeting-disclosure";
+import {
+  getRecordingStorageStatus,
+  readRecordingSafetyStatus,
+} from "./recording-safety";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
@@ -76,6 +80,30 @@ export function useStartListeningState(
     if (!canStartLiveSession(sessionId)) {
       return;
     }
+
+    const recordingSafety = await readRecordingSafetyStatus().catch(() => null);
+    const storage = getRecordingStorageStatus(
+      recordingSafety?.available_bytes ?? null,
+    );
+    if (!storage.canStart) {
+      const minutes = Math.max(
+        0,
+        Math.floor((storage.estimatedSeconds ?? 0) / 60),
+      );
+      sonnerToast.error("Not enough storage to safely start recording", {
+        id: "recording-storage-low",
+        duration: Infinity,
+        description: `Free some space first. Anarlog currently estimates about ${minutes} minutes before its safety reserve.`,
+      });
+      return;
+    }
+    if (recordingSafety?.low_power_mode) {
+      sonnerToast.warning("Low Power Mode is on", {
+        id: "recording-low-power-mode",
+        description: "Connect power for a long recording if you can.",
+      });
+    }
+
     await stopMeetingChatTasks();
     const lifecycle = createCaptureLifecycle(undefined, automatic);
     // A fresh note or a just-focused window starts listening right as a sync
