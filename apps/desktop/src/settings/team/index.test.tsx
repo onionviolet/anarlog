@@ -11,6 +11,12 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  personalContact: null as null | {
+    name: string;
+    email: string;
+    avatarDataUrl: string | null;
+  },
+  personalContactQuery: vi.fn(),
   billingCheckout: {
     buildWebAppUrl: vi.fn(() => Promise.resolve("https://anarlog.so/team")),
     openUrl: vi.fn(() => Promise.resolve()),
@@ -38,6 +44,7 @@ const mocks = vi.hoisted(() => ({
       ownerUserId: string;
       targetUserId: string;
     }>,
+    setMemberRole: vi.fn(() => Promise.resolve()),
     transferOwnership: vi.fn(() => Promise.resolve()),
     respondOwnershipRequest: vi.fn(() => Promise.resolve()),
     access: {
@@ -154,7 +161,7 @@ vi.mock("~/auth/billing-context", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
+  toast: {
     warning: mocks.toastWarning,
     success: vi.fn(),
     error: vi.fn(),
@@ -207,7 +214,7 @@ vi.mock("./client", () => ({
   renameWorkspace: mocks.client.renameWorkspace,
   setWorkspaceLogo: mocks.client.setWorkspaceLogo,
   revokeInvitation: mocks.client.revokeInvitation,
-  setMemberRole: vi.fn(() => Promise.resolve()),
+  setMemberRole: mocks.client.setMemberRole,
   transferOwnership: mocks.client.transferOwnership,
   listOwnershipRequests: () => Promise.resolve(mocks.client.ownershipRequests),
   respondOwnershipRequest: mocks.client.respondOwnershipRequest,
@@ -228,6 +235,17 @@ vi.mock("./client", () => ({
 
 import { SettingsTeam } from "./index";
 
+vi.mock("~/contacts/profile-photo", () => ({
+  useSharedProfilePhoto: () => ({ data: undefined }),
+}));
+
+vi.mock("~/contacts/queries", () => ({
+  usePersonalContact: (id: string) => {
+    mocks.personalContactQuery(id);
+    return { data: mocks.personalContact };
+  },
+}));
+
 function renderTeam() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -235,6 +253,7 @@ function renderTeam() {
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
 
   return {
+    queryClient,
     invalidate,
     ...render(
       <QueryClientProvider client={queryClient}>
@@ -250,6 +269,8 @@ function openWorkspace(name: string) {
 
 describe("SettingsTeam", () => {
   beforeEach(() => {
+    mocks.personalContact = null;
+    mocks.personalContactQuery.mockClear();
     mocks.session = { user: { id: "user-1" } };
     mocks.workspaces.data = [];
     mocks.myInvitations.data = [];
@@ -262,6 +283,7 @@ describe("SettingsTeam", () => {
     mocks.workspaces.isPending = false;
     mocks.client.members = [];
     mocks.client.ownershipRequests = [];
+    mocks.client.setMemberRole.mockClear();
     mocks.client.transferOwnership.mockClear();
     mocks.client.respondOwnershipRequest.mockClear();
     mocks.client.invitations = [];
@@ -855,7 +877,67 @@ describe("SettingsTeam", () => {
     expect(screen.getByText("SCIM bearer token")).toBeTruthy();
   });
 
-  it("shows profile details in the roster and keeps owner controls hidden", async () => {
+  it("uses the personal photo only for the viewer and reacts to changes and removal", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+    mocks.client.members = [
+      {
+        userId: "user-1",
+        email: "owner@example.com",
+        name: "Owner",
+        avatarUrl: "https://example.com/old.png",
+        role: "owner",
+      },
+      {
+        userId: "user-2",
+        email: "member@example.com",
+        name: "Member",
+        avatarUrl: "https://example.com/member.png",
+        role: "member",
+      },
+    ];
+    mocks.personalContact = {
+      name: "Local name",
+      email: "local@example.com",
+      avatarDataUrl: "data:image/jpeg;base64,custom",
+    };
+    const view = renderTeam();
+    const table = await screen.findByRole("table", { name: "Members" });
+    const owner = within(table)
+      .getByText("Owner", { selector: "p" })
+      .closest("tr")!;
+    const member = within(table)
+      .getByText("Member", { selector: "p" })
+      .closest("tr")!;
+    expect(owner.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/jpeg;base64,custom",
+    );
+    expect(member.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/member.png",
+    );
+    expect(
+      mocks.personalContactQuery.mock.calls.every(([id]) => id === "user-1"),
+    ).toBe(true);
+    mocks.personalContact.avatarDataUrl = null;
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <SettingsTeam />
+      </QueryClientProvider>,
+    );
+    const updatedTable = await screen.findByRole("table", { name: "Members" });
+    const updatedOwner = within(updatedTable)
+      .getByText("Owner", { selector: "p" })
+      .closest("tr")!;
+    expect(updatedOwner.querySelector("img")).toBeNull();
+  });
+
+  it("shows profile details and protects the primary owner in the role selector", async () => {
     mocks.workspaces.data = [
       {
         workspaceId: "ws",
@@ -891,6 +973,19 @@ describe("SettingsTeam", () => {
       "https://example.com/owner.png",
     );
     expect(within(ownerRow).queryByRole("button")).toBeNull();
+    const primarySelect = within(ownerRow).getByRole("combobox", {
+      name: "Permissions for owner@example.com",
+    });
+    expect(primarySelect.textContent).toContain("Primary owner");
+    Element.prototype.scrollIntoView = vi.fn();
+    fireEvent.keyDown(primarySelect, { key: "Enter" });
+    for (const name of ["Owner", "Admin", "Member"]) {
+      const option = await screen.findByRole("option", { name });
+      expect(option.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(option);
+    }
+    expect(mocks.client.setMemberRole).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
     expect(
       within(table).getByRole("combobox", {
         name: "Permissions for member@example.com",
@@ -1051,7 +1146,9 @@ describe("SettingsTeam", () => {
       name: "Permissions for member@example.com",
     });
     fireEvent.keyDown(select, { key: "Enter" });
-    fireEvent.click(await screen.findByRole("option", { name: "Owner" }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Primary owner" }),
+    );
     expect(
       await screen.findByRole("dialog", {
         name: "Request ownership transfer?",
@@ -1065,6 +1162,85 @@ describe("SettingsTeam", () => {
         expect.anything(),
         "ws",
         "user-2",
+      ),
+    );
+  });
+
+  it("appoints an additional owner without transferring primary ownership", async () => {
+    mocks.workspaces.data = [
+      { workspaceId: "ws", name: "Team", ownerUserId: "user-1", role: "owner" },
+    ];
+    mocks.client.members = [
+      { userId: "user-2", email: "member@example.com", role: "member" },
+    ];
+    renderTeam();
+    Element.prototype.scrollIntoView = vi.fn();
+    fireEvent.keyDown(
+      await screen.findByRole("combobox", {
+        name: "Permissions for member@example.com",
+      }),
+      { key: "Enter" },
+    );
+    fireEvent.click(await screen.findByRole("option", { name: "Owner" }));
+    await waitFor(() =>
+      expect(mocks.client.setMemberRole).toHaveBeenCalledWith(
+        expect.anything(),
+        "ws",
+        "user-2",
+        "owner",
+      ),
+    );
+    expect(mocks.client.transferOwnership).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lets ordinary owners demote themselves but protects other owners and primary actions", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Team",
+        ownerUserId: "primary",
+        role: "owner",
+      },
+    ];
+    mocks.client.members = [
+      { userId: "primary", email: "primary@example.com", role: "owner" },
+      { userId: "peer", email: "peer@example.com", role: "owner" },
+      { userId: "user-1", email: "self@example.com", role: "owner" },
+    ];
+    renderTeam();
+    const table = await screen.findByRole("table", { name: "Members" });
+    expect(
+      within(table).queryByRole("combobox", {
+        name: "Permissions for primary@example.com",
+      }),
+    ).toBeNull();
+    expect(
+      within(table).queryByRole("combobox", {
+        name: "Permissions for peer@example.com",
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete workspace" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Leave workspace" }),
+    ).toBeTruthy();
+    Element.prototype.scrollIntoView = vi.fn();
+    fireEvent.keyDown(
+      within(table).getByRole("combobox", {
+        name: "Permissions for self@example.com",
+      }),
+      { key: "Enter" },
+    );
+    expect(screen.queryByRole("option", { name: "Primary owner" })).toBeNull();
+    fireEvent.click(await screen.findByRole("option", { name: "Member" }));
+    await waitFor(() =>
+      expect(mocks.client.setMemberRole).toHaveBeenCalledWith(
+        expect.anything(),
+        "ws",
+        "user-1",
+        "member",
       ),
     );
   });

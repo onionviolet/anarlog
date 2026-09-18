@@ -5,13 +5,15 @@ import { useState } from "react";
 import { Check, Pencil, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { format, safeFormat, safeParseDate } from "@anlg/utils";
 
 import { useSession, useUpdateSession } from "~/session/queries";
+import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const { t } = useLingui();
+  const timeFormat = useTimeFormat();
   const [isEditing, setIsEditing] = useState(false);
   // Shown between closing the editor and the live query re-emitting, so the
   // read-only label never flashes the pre-save date. It masks the live value
@@ -25,7 +27,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
       : createdAt;
   const noteDate = safeFormat(
     effectiveCreatedAt ?? new Date(),
-    "MMM d, yyyy h:mm a",
+    `MMM d, yyyy ${timeFormat}`,
     t`Unknown date`,
   );
 
@@ -60,7 +62,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
         setPendingCreatedAt(nextCreatedAt);
         void commit.catch((error) => {
           console.error("[metadata] failed to update session date", error);
-          sonnerToast.error(t`Could not update the note date.`);
+          toast.error(t`Could not update the note date.`);
           setPendingCreatedAt(null);
         });
       }}

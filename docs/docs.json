@@ -26,6 +26,7 @@
           "automatic-capture",
           "import-recordings",
           "imports",
+          "zoom",
           "notes",
           "sharing",
           "teams",
@@ -99,7 +100,7 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:founders@anarlog.so"
+        "href": "mailto:team@fastrepl.com"
       }
     ],
     "primary": {

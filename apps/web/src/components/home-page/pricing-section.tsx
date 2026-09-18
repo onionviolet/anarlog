@@ -20,9 +20,9 @@ export function PricingSection({
           Simple pricing
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Start local for free, add personal cloud features with Pro, put
-          collaboration on Team, and reserve organization-wide controls for
-          Enterprise.
+          Start local for free, add dictation and personal cloud features with
+          Pro, put collaboration on Team, and reserve organization-wide controls
+          for Enterprise.
         </p>
       </div>
 
@@ -80,9 +80,9 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
         <Link
           to={plan.id === "enterprise" ? "/enterprise/" : "/download/"}
           className={cn([
-            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
+            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-colors",
             plan.popular
-              ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
+              ? "bg-fg hover:bg-fg/90 text-white"
               : "surface-subtle text-color hover:bg-page",
           ])}
         >

@@ -73,14 +73,21 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       yearly: 150,
     },
     description:
-      "Hosted transcription, AI, sync, and personal workflows for one person.",
+      "Hosted transcription, AI, dictation, sync, and personal workflows for one person.",
     popular: true,
     features: [
       { label: "Everything in Free", included: true },
+      {
+        label: "System-wide dictation",
+        included: true,
+        tooltip:
+          "Use a configurable shortcut to turn speech into text in other desktop apps on macOS, Windows, and Linux.",
+      },
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
-      { label: "End-to-end encrypted sync across 3 devices", included: true },
+      { label: "Cloud sync (up to 3 devices)", included: true },
+      { label: "End-to-end encryption (E2EE)", included: true },
       {
         label: "Share individual notes",
         included: true,

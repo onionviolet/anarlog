@@ -2,8 +2,17 @@ import { useCallback, useRef } from "react";
 
 import { beginCloudsyncActivity } from "@anlg/plugin-db";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import {
+  commands as transcriptionCommands,
+  events as transcriptionEvents,
+} from "@anlg/plugin-transcription";
+import { toast } from "@anlg/ui/components/ui/toast";
 
+import { createCaptureAudioRecovery } from "./capture-audio-recovery";
+import {
+  saveIncompleteCapture,
+  clearIncompleteCapture,
+} from "./capture-result";
 import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
@@ -14,12 +23,14 @@ import {
   canRunBatchTranscription,
   isStoppedTranscriptionError,
   isTerminalTranscriptionError,
+  reconcileRefinedSpeakerClusters,
   useRunBatch,
 } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { requestMainAutoEnhance } from "~/ai/task-window-sync";
 import { trackAnalyticsEvent } from "~/analytics";
+import { useAuth } from "~/auth";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import {
   deleteProcessedAudioForRetention,
@@ -42,6 +53,7 @@ import { requestAppAttention } from "~/shared/app-attention";
 import { playCompletionSound } from "~/shared/completion-sound";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -55,6 +67,8 @@ import {
 import { requestCaptureRecovery } from "~/stt/capture-recovery-requests";
 import {
   applyLiveTranscriptDeltaToDatabase,
+  appendRecoveredTranscriptWords,
+  getTranscriptRecord,
   createLiveTranscript,
   flushLiveTranscriptDeltasToDatabase,
   softDeleteTranscript,
@@ -168,6 +182,9 @@ export function getPostCaptureAction(
 
 export function useCaptureLifecycle(sessionId: string) {
   const session = useSession(sessionId);
+  const auth = useAuth();
+  const authRef = useRef(auth);
+  authRef.current = auth;
   const transcriptExistence = useSessionTranscriptExistence(sessionId);
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const audioRetention = normalizeAudioRetention(
@@ -216,6 +233,10 @@ export function useCaptureLifecycle(sessionId: string) {
       recoveredMarker?: CaptureLifecycleMarker,
       startedAutomatically = false,
     ) => {
+      let usesChunkedAudio =
+        !recoveredMarker || recoveredMarker.chunkedAudio === true;
+      const retainAudio =
+        recoveredMarker?.retainAudio ?? audioRetention !== "none";
       const automatic = recoveredMarker
         ? recoveredMarker.automatic === true
         : startedAutomatically;
@@ -402,13 +423,23 @@ export function useCaptureLifecycle(sessionId: string) {
                 delta,
               );
               transcriptCreated = true;
-              return;
+            } else {
+              await applyLiveTranscriptDeltaToDatabase(transcriptId, delta);
             }
-
-            await applyLiveTranscriptDeltaToDatabase(transcriptId, delta);
+            for (const word of delta.new_words)
+              if (word.state === "final")
+                audioRecovery.persistedThrough(word.end_ms);
+            if (!transcriptPersistence.hasPendingFailure())
+              transcriptWriteError = undefined;
           }),
         (error) => {
           transcriptWriteError = error;
+          audioRecovery.persistenceFailed();
+          toast.error("Your transcript could not be saved", {
+            id: `transcript-storage-${sessionId}`,
+            description:
+              "Free up disk space. Anarlog will try to recover the missing text while this meeting is still recording.",
+          });
           console.error("[listener] failed to persist transcript", error);
         },
         {
@@ -418,8 +449,190 @@ export function useCaptureLifecycle(sessionId: string) {
             ),
         },
       );
+      const recoveryToastId = `capture-recovery-${sessionId}`;
+      const audioRecovery = createCaptureAudioRecovery({
+        startedAt,
+        list: async () => {
+          const result =
+            await transcriptionCommands.listCaptureAudioChunks(sessionId);
+          if (result.status === "error") throw new Error(result.error);
+          return result.data.filter(
+            (chunk) => chunk.capture_started_at >= startedAt - 5_000,
+          );
+        },
+        acknowledge: async (chunk) => {
+          const result =
+            await transcriptionCommands.acknowledgeCaptureAudioChunk(
+              sessionId,
+              chunk.id,
+            );
+          if (result.status === "error") throw new Error(result.error);
+        },
+        flush: async () => {
+          await transcriptPersistence.flush();
+          if (transcriptPersistence.hasPendingFailure())
+            audioRecovery.persistenceFailed();
+          else transcriptWriteError = undefined;
+        },
+        repair: async (chunk, intervals, signal) => {
+          const beforeRepair = await getTranscriptRecord(transcriptId);
+          const audioOffset =
+            chunk.capture_started_at - startedAt + chunk.audio_start_ms;
+          try {
+            await runBatchRef.current(chunk.path, {
+              signal,
+              deferAudioFinalization: true,
+              notifyOnCompletion: false,
+              recovery: {
+                persist: async (words, hints) => {
+                  await transcriptPersistence.flush();
+                  signal.throwIfAborted();
+                  if (transcriptPersistence.hasPendingFailure())
+                    throw new Error(
+                      "Waiting for transcript storage to recover",
+                    );
+                  if (!words.length) return;
+                  if (!transcriptCreated) {
+                    transcriptCreated = await transcriptExists(transcriptId);
+                    if (!transcriptCreated) {
+                      await createLiveTranscript(
+                        {
+                          id: transcriptId,
+                          sessionId,
+                          ownerUserId,
+                          createdAt,
+                          startedAt,
+                          memo: memoMd,
+                          source: "live_capture",
+                          provider,
+                          model,
+                        },
+                        { new_words: [], replaced_ids: [], partials: [] },
+                      );
+                      transcriptCreated = true;
+                    }
+                  }
+                  const shifted = words.map((word) => ({
+                    ...word,
+                    start_ms: Number(word.start_ms) + audioOffset,
+                    end_ms: Number(word.end_ms) + audioOffset,
+                  }));
+                  await persistTranscriptWrite(() =>
+                    appendRecoveredTranscriptWords(
+                      transcriptId,
+                      shifted,
+                      beforeRepair
+                        ? reconcileRefinedSpeakerClusters(
+                            beforeRepair,
+                            shifted,
+                            hints,
+                          )
+                        : hints,
+                      intervals,
+                      beforeRepair?.words ?? [],
+                    ),
+                  );
+                  transcriptTouched = true;
+                },
+              },
+            });
+          } finally {
+            listenerStore.getState().clearBatchSession(`${sessionId}:recovery`);
+          }
+        },
+        onStatus: (status) => {
+          if (status === "complete") {
+            toast.dismiss(recoveryToastId);
+            return;
+          }
+          toast.info(
+            status === "repairing"
+              ? "Filling in the missing transcript"
+              : "Waiting to recover the missing transcript",
+            {
+              id: recoveryToastId,
+              duration: Infinity,
+              description: !retainAudio
+                ? "Recovery runs while recording. Audio will be deleted when this meeting ends, even if recovery is unfinished."
+                : "Live transcription resumes separately. Saved audio is used to fill the gap.",
+            },
+          );
+        },
+      });
+      let recoveryUnlisten: (() => void)[] = [];
+      let recoveryListening: Promise<void> | undefined;
+      let credentialTimer: ReturnType<typeof setTimeout> | undefined;
+      let refreshCredentialsActive = false;
+      const refreshCredentials = async () => {
+        if (!refreshCredentialsActive) return;
+        try {
+          const current = await authRef.current.getSessionForRequest();
+          if (refreshCredentialsActive && current?.access_token) {
+            await transcriptionCommands.updateCaptureCredentials(
+              sessionId,
+              current.access_token,
+            );
+          }
+        } catch (error) {
+          console.warn("[listener] capture credential refresh deferred", error);
+        } finally {
+          if (refreshCredentialsActive)
+            credentialTimer = setTimeout(
+              () => void refreshCredentials(),
+              30_000,
+            );
+        }
+      };
+      const startAudioRecovery = () =>
+        (recoveryListening ??= Promise.all([
+          transcriptionEvents.captureLifecycleEvent.listen(({ payload }) => {
+            if (payload.session_id !== sessionId) return;
+            if (payload.type === "started") {
+              if (payload.live_transcription_active) audioRecovery.connected();
+              else if (!payload.requested_live_transcription)
+                audioRecovery.batchOnly();
+              else audioRecovery.interrupted();
+            } else if (payload.type === "finalizing" && !retainAudio) {
+              void audioRecovery.stop(false);
+            }
+          }),
+          transcriptionEvents.captureStatusEvent.listen(({ payload }) => {
+            if (payload.session_id !== sessionId) return;
+            if (payload.type === "connected") audioRecovery.connected();
+            else if (payload.type === "connection_error")
+              audioRecovery.interrupted();
+            else if (
+              payload.type === "audio_error" &&
+              payload.error.startsWith("audio_storage_")
+            )
+              audioRecovery.storageFailed();
+          }),
+        ]).then((unlisten) => {
+          recoveryUnlisten = unlisten;
+          audioRecovery.start();
+          if (recoveredMarker) audioRecovery.recoverPending();
+          if (provider === "anarlog" && model === "cloud") {
+            refreshCredentialsActive = true;
+            credentialTimer = setTimeout(
+              () => void refreshCredentials(),
+              1_000,
+            );
+          }
+        }));
+      const stopAudioRecovery = async () => {
+        await recoveryListening;
+        refreshCredentialsActive = false;
+        clearTimeout(credentialTimer);
+        recoveryUnlisten.forEach((unlisten) => unlisten());
+        recoveryUnlisten = [];
+        const result = await audioRecovery.stop(retainAudio);
+        toast.dismiss(recoveryToastId);
+        return result;
+      };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
+        chunkedAudio: usesChunkedAudio,
+        retainAudio,
         phase: capturePhase,
         sessionId,
         transcriptId,
@@ -443,10 +656,10 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
         requestRecoveryOnFailure: boolean,
       ) => {
-        sonnerToast.dismiss("recording-without-transcription");
-        sonnerToast.dismiss("recording-with-limited-transcription-languages");
-        sonnerToast.dismiss("live-transcription-stalled");
-        sonnerToast.dismiss("meeting-disclosure-send-failed");
+        toast.dismiss("recording-without-transcription");
+        toast.dismiss("recording-with-limited-transcription-languages");
+        toast.dismiss("live-transcription-stalled");
+        toast.dismiss("meeting-disclosure-send-failed");
         const sessionWasDeleted = async () => {
           try {
             return await isSessionDeleted(sessionId);
@@ -460,7 +673,7 @@ export function useCaptureLifecycle(sessionId: string) {
         };
         const notifyFailure = async (message: string, id: string) => {
           if (requestRecoveryOnFailure && !(await sessionWasDeleted())) {
-            sonnerToast.error(message, { id });
+            toast.error(message, { id });
           }
         };
         const requestRecovery = async () => {
@@ -545,7 +758,8 @@ export function useCaptureLifecycle(sessionId: string) {
         transcriptCreated ??= await transcriptExists(transcriptId);
         const useLocalBatchForSpeakerDiarization =
           shouldUseLocalBatchForSpeakerDiarization();
-        const refineSpeakerDiarization = shouldRefineSpeakerDiarization();
+        const refineSpeakerDiarization =
+          !usesChunkedAudio && shouldRefineSpeakerDiarization();
         if (transcriptCreated) {
           try {
             await waitForSessionSearchIndex(sessionId);
@@ -569,7 +783,7 @@ export function useCaptureLifecycle(sessionId: string) {
                 refineSpeakerDiarization,
                 transcriptWriteFailed: Boolean(transcriptWriteError),
               },
-              canRunBatchRef.current,
+              canRunBatchRef.current && !usesChunkedAudio,
             );
         const repairReasons = pendingSummaryMode
           ? []
@@ -822,6 +1036,7 @@ export function useCaptureLifecycle(sessionId: string) {
         }
 
         const recoveryComplete =
+          !retainAudio ||
           (!details.audioPath && !transcriptWriteError) ||
           (transcriptIsComplete && summaryScheduled);
         if (!recoveryComplete) {
@@ -854,9 +1069,8 @@ export function useCaptureLifecycle(sessionId: string) {
           throw error;
         }
 
-        // A failed batch repair — or a live transcript that never fully
-        // persisted — keeps the recording around as the only source for a
-        // later repair, regardless of the retention policy.
+        // Native capture cleanup and the retention sweep enforce deletion even
+        // when legacy post-capture processing cannot finish.
         if (
           (postCaptureAction !== "batch_then_enhance" || batchCompleted) &&
           !transcriptWriteError
@@ -879,6 +1093,8 @@ export function useCaptureLifecycle(sessionId: string) {
           }
           throw error;
         } finally {
+          if (!transcriptPersistence.hasPendingFailure())
+            transcriptPersistence.dispose();
           updateBatchTranscriptionPending(false);
           if (recoveryPending) {
             if (requestRecoveryOnFailure) {
@@ -906,7 +1122,53 @@ export function useCaptureLifecycle(sessionId: string) {
           });
         }
       };
-      const onStopped: OnStoppedCallback = (_sessionId, details) => {
+      const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+        usesChunkedAudio = details.chunkedAudio === true;
+        if (usesChunkedAudio) {
+          await transcriptPersistence.flush();
+          if (transcriptPersistence.hasPendingFailure())
+            audioRecovery.persistenceFailed();
+          const recovery = await stopAudioRecovery();
+          details = {
+            ...details,
+            needsBatchRepair: recovery.incomplete,
+            liveTranscriptionActive: !recovery.incomplete,
+          };
+          if (recovery.incomplete || details.audioDeletionFailed) {
+            await saveIncompleteCapture(
+              sessionId,
+              transcriptId,
+              !retainAudio && !details.audioDeletionFailed,
+              details.audioDeletionFailed ?? false,
+            ).catch((error) =>
+              console.error(
+                "[listener] failed to save incomplete capture status",
+                error,
+              ),
+            );
+          }
+          if (details.audioDeletionFailed) {
+            toast.error("Audio could not be deleted", {
+              id: `audio-deletion-${sessionId}`,
+              duration: Infinity,
+              description:
+                "Anarlog could not remove the temporary audio. Cleanup will be retried automatically.",
+            });
+          } else if (!retainAudio && recovery.incomplete) {
+            toast.error("Your transcript is incomplete", {
+              id: `capture-incomplete-${sessionId}`,
+              duration: Infinity,
+              description:
+                "The meeting ended before recovery finished. Audio was deleted according to your retention setting.",
+            });
+          }
+        } else {
+          audioRecovery.cancel();
+          refreshCredentialsActive = false;
+          clearTimeout(credentialTimer);
+          recoveryUnlisten.forEach((unlisten) => unlisten());
+        }
+        if (!retainAudio) details = { ...details, audioPath: null };
         recoveryPending = false;
         markExpectedPostStopBatch(details);
         return finalizeStopped(details, true);
@@ -915,6 +1177,7 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
       ) => {
         if (
+          !usesChunkedAudio &&
           !pendingSummaryMode &&
           details.audioPath &&
           canRunBatchRef.current &&
@@ -925,7 +1188,21 @@ export function useCaptureLifecycle(sessionId: string) {
           updateBatchTranscriptionPending(true);
         }
       };
-      const recoverStopped: OnStoppedCallback = (_sessionId, details) => {
+      const recoverStopped: OnStoppedCallback = async (_sessionId, details) => {
+        if (usesChunkedAudio) {
+          audioRecovery.recoverPending();
+          const recovery = await stopAudioRecovery();
+          details = {
+            ...details,
+            needsBatchRepair: recovery.incomplete,
+            liveTranscriptionActive: !recovery.incomplete,
+            ...(!retainAudio ? { audioPath: null } : {}),
+          };
+        }
+        if (usesChunkedAudio && !details.needsBatchRepair)
+          await clearIncompleteCapture(sessionId, transcriptId);
+        else if (usesChunkedAudio)
+          await saveIncompleteCapture(sessionId, transcriptId, !retainAudio);
         markExpectedPostStopBatch(details);
         return finalizeStopped(details, false);
       };
@@ -955,13 +1232,20 @@ export function useCaptureLifecycle(sessionId: string) {
           existingAudioDurationPromise,
           existingAudioPromise,
         ]).then(() => undefined),
+        startAudioRecovery,
         persistMarker: async () => {
+          await startAudioRecovery();
           await persistTranscriptWrite(async () => {
             await saveCaptureLifecycleMarker(await marker());
           });
         },
         cleanupFailedStart: async () => {
+          refreshCredentialsActive = false;
+          clearTimeout(credentialTimer);
+          audioRecovery.cancel();
+          recoveryUnlisten.forEach((unlisten) => unlisten());
           await transcriptPersistence.flush();
+          transcriptPersistence.dispose();
           await clearCaptureLifecycleMarker(sessionId, transcriptId);
           if (transcriptCreated) {
             await softDeleteTranscript(transcriptId);

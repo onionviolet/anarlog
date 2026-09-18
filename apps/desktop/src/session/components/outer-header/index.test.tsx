@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
     standaloneWindow?: boolean;
   }>,
   windowControlsGutter: true,
+  windowsStyleTitleBar: false,
   meetingMicInUse: false,
 }));
 
@@ -119,6 +120,7 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/hooks/useWindowControlsGutter", () => ({
   useWindowControlsGutter: () => mocks.windowControlsGutter,
+  usesWindowsStyleTitleBar: () => mocks.windowsStyleTitleBar,
 }));
 
 vi.mock("~/shared/utils", async (importOriginal) => ({
@@ -163,6 +165,7 @@ import { OuterHeader } from "./index";
 
 describe("OuterHeader", () => {
   beforeEach(() => {
+    mocks.windowsStyleTitleBar = false;
     mocks.leftsidebar.expanded = true;
     mocks.leftsidebar.toggleExpanded.mockClear();
     mocks.canGoBack = false;
@@ -314,6 +317,23 @@ describe("OuterHeader", () => {
     expect(container.firstElementChild?.className).not.toContain("pl-2");
   });
 
+  it("omits the collapsed sidebar gutter with Windows-style title bars", () => {
+    mocks.leftsidebar.expanded = false;
+    mocks.windowControlsGutter = false;
+    mocks.windowsStyleTitleBar = true;
+
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(container.firstElementChild?.className).toContain("pl-2");
+    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[32px]");
+  });
+
   it("does not add a title offset while the sidebar is expanded", () => {
     mocks.leftsidebar.expanded = true;
 
@@ -455,7 +475,43 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Create brief" })).toBeNull();
   });
 
-  it("keeps the title editable after the meeting is over", () => {
+  it("keeps the title hidden when recording is removed while tabs are shown", () => {
+    mocks.audioExists = true;
+
+    const renderHeader = () => (
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+        viewSwitcher={
+          <div role="group" aria-label="Session note views">
+            Tabs
+          </div>
+        }
+      />
+    );
+    const { rerender } = render(renderHeader());
+
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+
+    mocks.audioExists = false;
+    rerender(renderHeader());
+
+    expect(
+      screen.getByRole("group", { name: "Session note views" }),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+  });
+
+  it("hides the title input after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -485,15 +541,13 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
     expect(screen.getByRole("group", { name: "Session note views" })).not.toBe(
       null,
     );
   });
 
-  it("keeps the title editable after an ad hoc recording", () => {
+  it("hides the title input after an ad hoc recording", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -511,9 +565,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
   it("shows an editable title on the memo tab before recording", () => {
@@ -537,7 +589,7 @@ describe("OuterHeader", () => {
     expect(title.getAttribute("placeholder")).toBe("Untitled");
   });
 
-  it("keeps the title editable on the memo tab after recording", () => {
+  it("hides the title input on the memo tab after recording", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -555,12 +607,10 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
-  it("keeps the title editable on the transcript tab after recording", () => {
+  it("hides the title input on the transcript tab", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -578,9 +628,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
   it.each(["active", "running_batch", "finalizing"] as const)(

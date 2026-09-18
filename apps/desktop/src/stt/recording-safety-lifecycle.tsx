@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
 import {
@@ -35,7 +35,7 @@ export function RecordingSafetyLifecycle() {
 
       stopping = true;
       stopRef.current();
-      sonnerToast.error("Recording stopped before storage filled up", {
+      toast.error("Recording stopped before storage filled up", {
         id: "recording-storage-critical",
         duration: Infinity,
         description:

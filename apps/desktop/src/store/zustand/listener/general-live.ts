@@ -20,7 +20,7 @@ import {
   type LiveTranscriptSegment,
   type LiveTranscriptSegmentDelta,
 } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   type GeneralState,
@@ -208,11 +208,11 @@ const clearLiveInterval = (intervalId?: LiveIntervalId) => {
 };
 
 const notifyTranscriptionStalled = () => {
-  sonnerToast.warning("Live transcription stalled", {
+  toast.warning("Live transcription stalled", {
     id: "live-transcription-stalled",
     duration: Infinity,
     description:
-      "Anarlog keeps recording while live transcription reconnects. Any missing text will be rebuilt from the recording after you stop listening.",
+      "Anarlog keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.",
   });
 };
 
@@ -354,6 +354,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
       try {
         const stopped = onStopped(targetSessionId, {
           durationSeconds: stoppedSeconds,
+          chunkedAudio: payload.chunked_audio,
+          audioDeletionFailed:
+            payload.error?.includes("audio_deletion_failed:") ?? false,
           audioPath: payload.audio_path ?? null,
           requestedLiveTranscription: payload.requested_live_transcription,
           liveTranscriptionActive: payload.live_transcription_active,
@@ -380,6 +383,34 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (get().live.sessionId !== targetSessionId) {
+      return;
+    }
+
+    if (
+      payload.type === "audio_error" &&
+      payload.error.startsWith("audio_storage_")
+    ) {
+      setLiveState(set, (live) => updateLiveProgress(live, payload));
+      toast.error("Audio saving was interrupted", {
+        id: `audio-storage-${targetSessionId}`,
+        duration: Infinity,
+        description:
+          "Live transcription continues. Free up disk space to resume audio saving. Audio missing during this interruption cannot be recovered.",
+      });
+      return;
+    }
+
+    if (
+      payload.type === "audio_error" &&
+      !payload.is_fatal &&
+      payload.error === "recording_recovered"
+    ) {
+      toast.warning("The previous recording needs recovery", {
+        id: `recording-recovered-${targetSessionId}`,
+        duration: Infinity,
+        description:
+          "The unreadable audio was preserved in this note's folder as an audio.recovery-*.wav file. New audio will be recorded separately. Your transcript is unchanged.",
+      });
       return;
     }
 
@@ -426,7 +457,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
               currentLive.transcriptionStalled)))
       ) {
         if (hasFinalWords && currentLive.transcriptionStalled) {
-          sonnerToast.dismiss("live-transcription-stalled");
+          toast.dismiss("live-transcription-stalled");
         }
         setLiveState(set, (live) => {
           noteLiveTranscriptActivity(live, {

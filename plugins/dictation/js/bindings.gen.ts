@@ -38,25 +38,33 @@ async updateAmplitude(amplitude: number) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startRecording(microphoneDevice: string | null) : Promise<Result<null, string>> {
+async startRecording(microphoneDevice: string | null, owner: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_recording", { microphoneDevice }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_recording", { microphoneDevice, owner }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async stopRecording() : Promise<Result<RecordedAudio, string>> {
+async startSystemRecording(microphoneDevice: string | null, owner: string, preview: PreviewConfig | null, updates: TAURI_CHANNEL<RecordingUpdate>) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_system_recording", { microphoneDevice, owner, preview, updates }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async cancelRecording() : Promise<Result<null, string>> {
+async stopRecording(owner: string) : Promise<Result<RecordedAudio, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|cancel_recording") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording", { owner }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelRecording(owner: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|cancel_recording", { owner }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -65,6 +73,22 @@ async cancelRecording() : Promise<Result<null, string>> {
 async discardRecording(filePath: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|discard_recording", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async captureTarget() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|capture_target") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async insertText(target: string, text: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|insert_text", { target, text }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -82,8 +106,12 @@ async discardRecording(filePath: string) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
+export type ListenParams = { model?: string | null; channels?: number; sample_rate?: number; languages?: string[]; keywords?: string[]; num_speakers?: number | null; min_speakers?: number | null; max_speakers?: number | null; custom_query?: Partial<{ [key in string]: string }> | null }
 export type Phase = "recording" | "processing"
-export type RecordedAudio = { filePath: string; durationMs: number }
+export type PreviewConfig = { provider: string; baseUrl: string; apiKey: string; params: ListenParams }
+export type RecordedAudio = { filePath: string; durationMs: number; transcript: string | null }
+export type RecordingUpdate = { type: "amplitude"; amplitude: number } | { type: "transcript"; text: string; partial: string } | { type: "previewUnavailable" }
+export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/
 

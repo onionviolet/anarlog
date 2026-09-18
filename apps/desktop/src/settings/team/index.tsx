@@ -5,6 +5,7 @@ import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { getCustomProfileImageUrl } from "@anlg/supabase/profile";
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
   CircleNotch,
@@ -40,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
@@ -90,6 +91,8 @@ import {
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { useSharedProfilePhoto } from "~/contacts/profile-photo";
+import { usePersonalContact } from "~/contacts/queries";
 import {
   cancelScheduledCapture,
   listScheduledCaptures,
@@ -199,6 +202,7 @@ export function SettingsTeam() {
               workspaceShareSlug={selectedWorkspace.shareSlug ?? null}
               workspaceLogoDataUrl={selectedWorkspace.logoDataUrl ?? null}
               workspaceRole={selectedWorkspace.role ?? "member"}
+              primaryOwnerId={selectedWorkspace.ownerUserId}
               onWorkspaceRenamed={() => {
                 void queryClient.invalidateQueries({
                   queryKey: [MY_WORKSPACES_QUERY_KEY],
@@ -245,11 +249,11 @@ function PendingInvitations({
       void queryClient.invalidateQueries({
         queryKey: [MY_INVITATIONS_QUERY_KEY],
       });
-      sonnerToast.success(t`Joined ${invitation.workspaceName}`);
-      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+      toast.success(t`Joined ${invitation.workspaceName}`);
+      toast.dismiss(`team-invitation:${invitation.invitationId}`);
     },
     onError: (error) => {
-      sonnerToast.error(error.message);
+      toast.error(error.message);
     },
   });
   const decline = useMutation({
@@ -262,10 +266,10 @@ function PendingInvitations({
       void queryClient.invalidateQueries({
         queryKey: [MY_INVITATIONS_QUERY_KEY],
       });
-      sonnerToast.dismiss(`team-invitation:${invitation.invitationId}`);
+      toast.dismiss(`team-invitation:${invitation.invitationId}`);
     },
     onError: (error) => {
-      sonnerToast.error(error.message);
+      toast.error(error.message);
     },
   });
 
@@ -460,6 +464,7 @@ function WorkspacePanel({
   workspaceShareSlug,
   workspaceLogoDataUrl,
   workspaceRole,
+  primaryOwnerId,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
@@ -468,6 +473,7 @@ function WorkspacePanel({
   workspaceShareSlug: string | null;
   workspaceLogoDataUrl: string | null;
   workspaceRole: WorkspaceRole;
+  primaryOwnerId: string;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -525,6 +531,7 @@ function WorkspacePanel({
 
   const members = useQuery({
     queryKey: ["team-members", workspaceId],
+    refetchInterval: 30_000,
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
     retry: false,
   });
@@ -596,7 +603,7 @@ function WorkspacePanel({
     },
   });
   const changeRole = useMutation({
-    mutationFn: (input: { userId: string; role: "admin" | "member" }) =>
+    mutationFn: (input: { userId: string; role: WorkspaceRole }) =>
       setMemberRole(
         requireTeamContext(auth),
         workspaceId,
@@ -685,6 +692,7 @@ function WorkspacePanel({
 
   const viewerId = auth.session?.user.id;
   const viewerRole = workspaceRole;
+  const isPrimaryOwner = viewerId === primaryOwnerId;
   const trimmedEmail = email.trim();
   const hasAdminControls =
     canManagePolicies ||
@@ -831,7 +839,7 @@ function WorkspacePanel({
           ) : null}
         </div>
 
-        {workspaceRole === "owner" && canManageMembers ? (
+        {isPrimaryOwner && canManageMembers ? (
           <WorkspaceEmailAutoJoin workspaceId={workspaceId} />
         ) : null}
 
@@ -928,6 +936,9 @@ function WorkspacePanel({
                   <MemberRow
                     key={member.userId}
                     member={member}
+                    isPrimaryOwner={member.userId === primaryOwnerId}
+                    viewerIsPrimaryOwner={isPrimaryOwner}
+                    rolePending={changeRole.isPending}
                     isViewer={member.userId === viewerId}
                     viewerRole={isManager ? viewerRole : undefined}
                     canManageMembers={canManageMembers}
@@ -1088,7 +1099,7 @@ function WorkspacePanel({
 
       <div className="flex min-w-0 items-center justify-between gap-4">
         <p className="text-muted-foreground min-w-0 text-xs">
-          {viewerRole === "owner" ? (
+          {isPrimaryOwner ? (
             <Trans>
               Deleting removes the workspace for everyone. Transfer ownership
               first if you only want to leave.
@@ -1097,7 +1108,7 @@ function WorkspacePanel({
             <Trans>Leaving gives up your access to shared notes here.</Trans>
           )}
         </p>
-        {viewerRole === "owner" ? (
+        {isPrimaryOwner ? (
           <Button
             size="sm"
             variant="destructive"
@@ -1178,10 +1189,9 @@ function WorkspacePanel({
         description={
           <>
             <Trans>
-              {transferTarget?.email} must accept before becoming owner. Until
-              then, ownership and permissions stay the same. After acceptance,
-              you become an admin and they control the workspace, including
-              deletion.
+              {transferTarget?.email} must accept before becoming Primary owner.
+              Until then, ownership and permissions stay the same. After
+              acceptance, you remain an Owner and they can delete the workspace.
             </Trans>
             {transfer.error ? (
               <span role="alert">{transfer.error.message}</span>
@@ -1201,9 +1211,9 @@ function WorkspacePanel({
         description={
           <>
             <Trans>
-              You will become the owner of {workspaceName}, with control over
-              its members, billing, and deletion. The current owner will become
-              an admin.
+              You will become the Primary owner of {workspaceName}, with control
+              over its members, billing, and deletion. The current Primary owner
+              will remain an Owner.
             </Trans>
             {respondTransfer.error ? (
               <span role="alert">{respondTransfer.error.message}</span>
@@ -1773,6 +1783,9 @@ const WORKSPACE_SHARE_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 function MemberRow({
   member,
+  isPrimaryOwner,
+  viewerIsPrimaryOwner,
+  rolePending,
   isViewer,
   viewerRole,
   canManageMembers,
@@ -1783,10 +1796,13 @@ function MemberRow({
   transferDisabled,
 }: {
   member: WorkspaceMember;
+  isPrimaryOwner: boolean;
+  viewerIsPrimaryOwner: boolean;
+  rolePending: boolean;
   isViewer: boolean;
   viewerRole?: WorkspaceRole;
   canManageMembers: boolean;
-  onRoleChange: (role: "admin" | "member") => void;
+  onRoleChange: (role: WorkspaceRole) => void;
   onRemove: () => void;
   onTransfer: () => void;
   ownershipPending: boolean;
@@ -1794,31 +1810,35 @@ function MemberRow({
 }) {
   const { t } = useLingui();
   const isOwner = member.role === "owner";
-  // Mirrors the server: owners change any role, admins may only raise a member
-  // to admin, and nobody may remove a peer admin or the owner.
   const canEditRole =
     canManageMembers &&
-    !isOwner &&
-    (viewerRole === "owner" ||
+    ((viewerRole === "owner" &&
+      (!isOwner || viewerIsPrimaryOwner || isViewer)) ||
       (viewerRole === "admin" && member.role === "member"));
   const canRemove =
-    !isOwner &&
+    canManageMembers &&
+    !isPrimaryOwner &&
     !isViewer &&
-    (viewerRole === "owner" ||
+    ((viewerRole === "owner" && (!isOwner || viewerIsPrimaryOwner)) ||
       (viewerRole === "admin" && member.role === "member"));
-  const canTransfer = canManageMembers && viewerRole === "owner" && !isOwner;
+  const canTransfer =
+    canManageMembers && viewerIsPrimaryOwner && !isPrimaryOwner;
 
   return (
     <tr>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <Avatar
-            seed={member.userId}
-            label={member.name || member.email}
-            imageUrl={member.avatarUrl}
-            size={32}
-            className="rounded-full"
-          />
+          {isViewer ? (
+            <PersonalMemberAvatar member={member} />
+          ) : (
+            <Avatar
+              seed={member.userId}
+              label={member.name || member.email}
+              imageUrl={member.avatarUrl}
+              size={32}
+              className="rounded-full"
+            />
+          )}
           <div className="min-w-0">
             <p className="font-medium whitespace-nowrap">
               {member.name || "—"}
@@ -1835,7 +1855,9 @@ function MemberRow({
       <td className="px-4 py-3">
         {!canEditRole ? (
           <span className="text-muted-foreground text-xs">
-            {member.role === "owner" ? (
+            {isPrimaryOwner ? (
+              <Trans>Primary owner</Trans>
+            ) : member.role === "owner" ? (
               <Trans>Owner</Trans>
             ) : member.role === "admin" ? (
               <Trans>Admin</Trans>
@@ -1845,33 +1867,53 @@ function MemberRow({
           </span>
         ) : (
           <Select
-            value={member.role}
+            value={isPrimaryOwner ? "primary_owner" : member.role}
+            disabled={rolePending}
             onValueChange={(value) => {
-              if (value === "owner") onTransfer();
-              else onRoleChange(value === "admin" ? "admin" : "member");
+              if (isPrimaryOwner) return;
+              if (value === "primary_owner" && canTransfer) onTransfer();
+              else if (
+                value === "owner" ||
+                value === "admin" ||
+                value === "member"
+              )
+                onRoleChange(value);
             }}
           >
             <SelectTrigger
-              className="bg-card h-8 w-28 shadow-none"
+              className="bg-card h-8 w-40 shadow-none"
               aria-label={t`Permissions for ${member.email}`}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {canTransfer ? (
-                <SelectItem value="owner" disabled={transferDisabled}>
+              {canTransfer || isPrimaryOwner ? (
+                <SelectItem
+                  value="primary_owner"
+                  disabled={transferDisabled && !isPrimaryOwner}
+                >
+                  <Trans>Primary owner</Trans>
+                </SelectItem>
+              ) : null}
+              {viewerRole === "owner" ? (
+                <SelectItem value="owner" disabled={isPrimaryOwner}>
                   <Trans>Owner</Trans>
                 </SelectItem>
               ) : null}
-              <SelectItem value="admin">
+              <SelectItem value="admin" disabled={isPrimaryOwner}>
                 <Trans>Admin</Trans>
               </SelectItem>
-              <SelectItem value="member">
+              <SelectItem value="member" disabled={isPrimaryOwner}>
                 <Trans>Member</Trans>
               </SelectItem>
             </SelectContent>
           </Select>
         )}
+        {isPrimaryOwner && canEditRole ? (
+          <p className="text-muted-foreground mt-1 text-xs">
+            <Trans>Transfer primary ownership before changing your role.</Trans>
+          </p>
+        ) : null}
         {ownershipPending ? (
           <span className="text-muted-foreground mt-1 block text-xs">
             <Trans>Pending</Trans>
@@ -1916,5 +1958,26 @@ function TeamSkeleton() {
         <div key={row} className="bg-muted h-11 animate-pulse rounded-lg" />
       ))}
     </div>
+  );
+}
+
+function PersonalMemberAvatar({ member }: { member: WorkspaceMember }) {
+  const { data: contact } = usePersonalContact(member.userId);
+  const { data: user } = useSharedProfilePhoto(member.userId);
+  const custom = getCustomProfileImageUrl(user);
+  return (
+    <Avatar
+      seed={member.userId}
+      label={member.name || member.email}
+      imageUrl={
+        custom !== undefined
+          ? custom
+          : contact
+            ? contact.avatarDataUrl
+            : member.avatarUrl
+      }
+      size={32}
+      className="rounded-full"
+    />
   );
 }

@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { ChatEditorHandle } from "@anlg/editor/chat";
 import { commands as dictationCommands } from "@anlg/plugin-dictation";
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -61,7 +61,7 @@ export function useDictation({
         throw new Error(captureState.error);
       }
       if (captureState.data !== "inactive") {
-        sonnerToast.warning(
+        toast.warning(
           t`Voice input is unavailable while Anarlog is recording a meeting.`,
         );
         setPhase("idle");
@@ -70,12 +70,13 @@ export function useDictation({
 
       const result = await dictationCommands.startRecording(
         microphoneDevice || null,
+        transcriptionSessionId,
       );
       if (result.status === "error") {
         throw new Error(result.error);
       }
       if (!mountedRef.current) {
-        await cancelActiveRecording();
+        await cancelActiveRecording(transcriptionSessionId);
         return;
       }
 
@@ -93,17 +94,24 @@ export function useDictation({
         }
       }, 250);
     } catch (error) {
-      await cancelActiveRecording();
+      await cancelActiveRecording(transcriptionSessionId);
       if (!mountedRef.current) {
         return;
       }
       setPhase("idle");
-      sonnerToast.error(t`Could not start voice input`, {
+      toast.error(t`Could not start voice input`, {
         description: t`Check microphone permission and the selected input device, then try again.`,
       });
       console.error("[chat-dictation] failed to start recording", error);
     }
-  }, [disabled, microphoneDevice, setPhase, stopElapsedTimer, t]);
+  }, [
+    disabled,
+    microphoneDevice,
+    setPhase,
+    stopElapsedTimer,
+    t,
+    transcriptionSessionId,
+  ]);
 
   const stop = useCallback(async () => {
     if (phaseRef.current !== "recording") {
@@ -115,7 +123,9 @@ export function useDictation({
     let recordedPath: string | null = null;
 
     try {
-      const result = await dictationCommands.stopRecording();
+      const result = await dictationCommands.stopRecording(
+        transcriptionSessionId,
+      );
       if (result.status === "error") {
         throw new Error(result.error);
       }
@@ -145,11 +155,11 @@ export function useDictation({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/no speech|empty transcript/iu.test(message)) {
-        sonnerToast.warning(t`No speech detected`, {
+        toast.warning(t`No speech detected`, {
           description: t`Try speaking a little closer to the microphone.`,
         });
       } else {
-        sonnerToast.error(t`Could not transcribe voice input`, {
+        toast.error(t`Could not transcribe voice input`, {
           description: message,
         });
       }
@@ -163,7 +173,14 @@ export function useDictation({
         editorRef.current?.focus();
       }
     }
-  }, [editorRef, runBatch, setPhase, stopElapsedTimer, t]);
+  }, [
+    editorRef,
+    runBatch,
+    setPhase,
+    stopElapsedTimer,
+    t,
+    transcriptionSessionId,
+  ]);
   stopRef.current = stop;
 
   useMountEffect(() => {
@@ -172,7 +189,7 @@ export function useDictation({
       mountedRef.current = false;
       stopElapsedTimer();
       if (phaseRef.current === "starting" || phaseRef.current === "recording") {
-        void cancelActiveRecording();
+        void cancelActiveRecording(transcriptionSessionId);
       }
     };
   });
@@ -185,9 +202,11 @@ export function useDictation({
   };
 }
 
-async function cancelActiveRecording() {
+async function cancelActiveRecording(transcriptionSessionId: string) {
   try {
-    const result = await dictationCommands.cancelRecording();
+    const result = await dictationCommands.cancelRecording(
+      transcriptionSessionId,
+    );
     if (result.status === "error") {
       throw new Error(result.error);
     }

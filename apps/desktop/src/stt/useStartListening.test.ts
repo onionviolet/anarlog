@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { events as transcriptionEvents } from "@anlg/plugin-transcription";
+
+import { saveIncompleteCapture } from "./capture-result";
 import {
   MAX_SENT_MEETING_DISCLOSURE_SESSIONS,
   startMeetingRecordingDisclosure,
@@ -59,9 +62,9 @@ const {
   sendMeetingChatMessageMock,
   audioPathMock,
   audioSourceMetadataMock,
-  sonnerToastWarningMock,
-  sonnerToastErrorMock,
-  sonnerToastDismissMock,
+  toastWarningMock,
+  toastErrorMock,
+  toastDismissMock,
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
   catalogLocalSessionAudioMock,
@@ -116,9 +119,9 @@ const {
   sendMeetingChatMessageMock: vi.fn(),
   audioPathMock: vi.fn(),
   audioSourceMetadataMock: vi.fn(),
-  sonnerToastWarningMock: vi.fn(),
-  sonnerToastErrorMock: vi.fn(),
-  sonnerToastDismissMock: vi.fn(),
+  toastWarningMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  toastDismissMock: vi.fn(),
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
   catalogLocalSessionAudioMock: vi.fn(),
@@ -141,11 +144,28 @@ vi.mock("@anlg/plugin-db", () => ({
   subscribe: vi.fn(async () => () => {}),
 }));
 
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ getSessionForRequest: vi.fn(async () => null) }),
+}));
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
     recordingSafetyStatus: recordingSafetyStatusMock,
+    listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
+    acknowledgeCaptureAudioChunk: vi.fn(async () => ({
+      status: "ok",
+      data: null,
+    })),
+    updateCaptureCredentials: vi.fn(async () => ({ status: "ok", data: null })),
   },
+  events: {
+    captureLifecycleEvent: { listen: vi.fn(async () => () => {}) },
+    captureStatusEvent: { listen: vi.fn(async () => () => {}) },
+  },
+}));
+vi.mock("./capture-result", () => ({
+  saveIncompleteCapture: vi.fn(async () => {}),
+  clearIncompleteCapture: vi.fn(async () => {}),
 }));
 
 vi.mock("./contexts", () => ({
@@ -177,10 +197,11 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    warning: sonnerToastWarningMock,
-    error: sonnerToastErrorMock,
-    dismiss: sonnerToastDismissMock,
+  toast: {
+    warning: toastWarningMock,
+    error: toastErrorMock,
+    dismiss: toastDismissMock,
+    info: vi.fn(),
   },
 }));
 
@@ -586,6 +607,101 @@ describe("useStartListening", () => {
     vi.useRealTimers();
   });
 
+  test("zero retention deletes the recovery opportunity at stop even after a disconnect", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({ retain_audio: false });
+    const progress = vi.mocked(transcriptionEvents.captureStatusEvent.listen)
+      .mock.calls[0]?.[0];
+    progress?.({
+      payload: {
+        type: "connection_error",
+        session_id: "session-1",
+        error: "offline",
+      },
+    } as never);
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: false,
+        needsBatchRepair: true,
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(saveIncompleteCapture).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      true,
+      false,
+    );
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Your transcript is incomplete",
+      expect.anything(),
+    );
+  });
+
+  test("does not reprocess a whole chunked recording after recovery has completed", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: true,
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+  });
+
+  test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        audioDeletionFailed: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+    expect(saveIncompleteCapture).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      false,
+      true,
+    );
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Audio could not be deleted",
+      expect.anything(),
+    );
+    expect(toastErrorMock).not.toHaveBeenCalledWith(
+      "Your transcript is incomplete",
+      expect.anything(),
+    );
+    expect(runBatchMock).not.toHaveBeenCalled();
+  });
+
   test("collapses the left sidebar after listening starts", async () => {
     const { result } = renderHook(() => useStartListening("session-1"));
 
@@ -656,7 +772,7 @@ describe("useStartListening", () => {
       }),
       expect.any(Object),
     );
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Live transcription is not configured",
       expect.objectContaining({
         id: "recording-without-transcription",
@@ -666,7 +782,7 @@ describe("useStartListening", () => {
       }),
     );
 
-    const warningCalls = sonnerToastWarningMock.mock.calls;
+    const warningCalls = toastWarningMock.mock.calls;
     const warningOptions = warningCalls[warningCalls.length - 1]?.[1];
     warningOptions?.action.onClick();
 
@@ -685,7 +801,7 @@ describe("useStartListening", () => {
       await result.current();
     });
 
-    expect(sonnerToastWarningMock).not.toHaveBeenCalledWith(
+    expect(toastWarningMock).not.toHaveBeenCalledWith(
       "Live transcription is not configured",
       expect.anything(),
     );
@@ -787,7 +903,7 @@ describe("useStartListening", () => {
 
     expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
     expect(startMock).toHaveBeenCalledOnce();
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
     consoleWarn.mockRestore();
   });
@@ -807,7 +923,7 @@ describe("useStartListening", () => {
     );
 
     expect(startMock).toHaveBeenCalledOnce();
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
     consoleWarn.mockRestore();
   });
 
@@ -2083,7 +2199,7 @@ describe("useStartListening", () => {
     await act(async () => {
       await expect(result.current()).resolves.toBe("error");
     });
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
 
     await act(async () => {
       await expect(result.current()).resolves.toBe("inactive");
@@ -2664,7 +2780,10 @@ describe("useStartListening", () => {
       notifyOnCompletion: false,
       promotion: { scope: "whole_session" },
     });
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Your transcript could not be saved",
+      expect.anything(),
+    );
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
       "session-1",
     );
@@ -3047,7 +3166,7 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+    expect(toastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not save part of the live transcript.",
       { id: "live-transcript-persist-failed" },
     );
@@ -3097,7 +3216,7 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+    expect(toastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
       { id: "post-capture-transcript-incomplete" },
     );
@@ -3136,7 +3255,7 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+    expect(toastErrorMock).toHaveBeenCalledWith(
       "Post-meeting transcription failed. The recording was kept so you can try again.",
       { id: "post-capture-batch-failed" },
     );
@@ -3216,7 +3335,7 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+    expect(toastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
       { id: "post-capture-transcript-incomplete" },
     );
@@ -3277,7 +3396,7 @@ describe("useStartListening", () => {
 
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
     expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ phase: "finalizing" }),
     );
@@ -3520,7 +3639,7 @@ describe("useStartListening", () => {
     });
 
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
-    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+    expect(toastErrorMock).toHaveBeenCalledWith(
       "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
       { id: "post-capture-summary-failed" },
     );
@@ -3563,7 +3682,7 @@ describe("useStartListening", () => {
     });
 
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
     expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
       "session-1",
       "generated-id",
@@ -3608,7 +3727,7 @@ describe("useStartListening", () => {
     });
 
     expect(isSessionDeletedMock).toHaveBeenCalledTimes(2);
-    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
@@ -3856,7 +3975,7 @@ describe("useStartListening", () => {
       languages: ["en"],
       transcription_mode: undefined,
     });
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Live transcription is using English",
       expect.objectContaining({
         id: "recording-with-limited-transcription-languages",
@@ -3866,7 +3985,7 @@ describe("useStartListening", () => {
       }),
     );
 
-    const warningCalls = sonnerToastWarningMock.mock.calls;
+    const warningCalls = toastWarningMock.mock.calls;
     const warningOptions = warningCalls[warningCalls.length - 1]?.[1];
     warningOptions?.action.onClick();
 
@@ -4087,7 +4206,7 @@ describe("useStartListening", () => {
       expect.stringContaining("https://anarlog.so"),
       ["us.zoom.xos"],
     );
-    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    expect(toastWarningMock).not.toHaveBeenCalled();
   });
 
   test("keeps the Slack scope when Anarlog also appears in the mic-active apps", async () => {
@@ -4151,7 +4270,7 @@ describe("useStartListening", () => {
       "[listener] meeting disclosure was not sent",
       "expected exactly one recognized meeting app bundle",
     );
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Recording started, but Anarlog could not post the meeting chat disclosure.",
       { id: "meeting-disclosure-send-failed", duration: Infinity },
     );
@@ -4178,7 +4297,7 @@ describe("useStartListening", () => {
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(3);
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(sonnerToastWarningMock).toHaveBeenCalledTimes(1);
+    expect(toastWarningMock).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
 
@@ -4232,7 +4351,7 @@ describe("useStartListening", () => {
     });
 
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    expect(toastWarningMock).not.toHaveBeenCalled();
   });
 
   test("does not overlap disclosure sends after a quick stop and restart", async () => {
@@ -4301,7 +4420,7 @@ describe("useStartListening", () => {
       "[listener] meeting disclosure was not sent",
       error,
     );
-    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+    expect(toastWarningMock).toHaveBeenCalledWith(
       "Recording started, but Anarlog could not post the meeting chat disclosure.",
       { id: "meeting-disclosure-send-failed", duration: Infinity },
     );

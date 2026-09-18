@@ -7,7 +7,8 @@ use owhisper_client::{
     CohereAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
     GoogleCloudAdapter, GoogleGenerativeAiAdapter, GroqAdapter, MetaAdapter, MistralAdapter,
     OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RevAiAdapter, SiliconFlowAdapter,
-    SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, XaiAdapter, ZaiAdapter,
+    SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, WisprFlowAdapter,
+    XaiAdapter, ZaiAdapter,
 };
 use owhisper_interface::batch::{Alternatives, Channel, Response, Results};
 use tracing::Instrument;
@@ -107,6 +108,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         Together => TogetherAdapter,
         Xai => XaiAdapter,
         SmallestAI => SmallestAIAdapter,
+        WisprFlow => WisprFlowAdapter,
     }, unsupported: [DashScope, Nari])
 }
 
@@ -150,16 +152,18 @@ pub(super) async fn prepare_anarlog_batch_upload(
         .into());
     }
 
-    let temp_dir = tempfile::tempdir().map_err(|_error| {
-        tracing::error!(
-            error.type = "temp_dir_create_failed",
-            "large_batch_audio_temp_dir_failed"
-        );
-        crate::BatchFailure::DirectRequestFailed {
-            provider: AdapterKind::Anarlog.to_string(),
-            message: "Anarlog couldn't prepare this large recording for transcription.".to_string(),
-        }
-    })?;
+    let temp_dir =
+        super::super::upload::temporary_audio_directory(file_path).map_err(|_error| {
+            tracing::error!(
+                error.type = "temp_dir_create_failed",
+                "large_batch_audio_temp_dir_failed"
+            );
+            crate::BatchFailure::DirectRequestFailed {
+                provider: AdapterKind::Anarlog.to_string(),
+                message: "Anarlog couldn't prepare this large recording for transcription."
+                    .to_string(),
+            }
+        })?;
     let encoded_path = temp_dir.path().join("audio.mp3");
     let encode_source = source_path.clone();
     let encode_target = encoded_path.clone();

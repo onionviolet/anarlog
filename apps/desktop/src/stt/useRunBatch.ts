@@ -3,9 +3,10 @@ import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@anlg/plugin-transcription";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
+import { clearIncompleteCapture } from "./capture-result";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
 import {
@@ -49,6 +50,10 @@ import {
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
+  signal?: AbortSignal;
+  recovery?: {
+    persist: (words: WordWithId[], hints: SpeakerHintWithId[]) => Promise<void>;
+  };
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   notifyOnCompletion?: boolean;
@@ -106,6 +111,7 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "together",
   "xai",
   "smallestai",
+  "wisprflow",
 ]);
 
 const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
@@ -688,6 +694,7 @@ export const useRunBatch = (sessionId: string) => {
   const participants = useSessionParticipants(sessionId);
 
   const startTranscription = useListener((state) => state.startTranscription);
+  const stopTranscription = useListener((state) => state.stopTranscription);
   const { conn } = useSTTConnection();
   const auth = useAuth();
   const billing = useBillingAccess();
@@ -701,6 +708,7 @@ export const useRunBatch = (sessionId: string) => {
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
+      options?.signal?.throwIfAborted();
       if (!startTranscription) {
         throw new Error(
           "STT connection is not available. Please configure your speech-to-text provider.",
@@ -742,6 +750,7 @@ export const useRunBatch = (sessionId: string) => {
               languages,
             )
           : false;
+      options?.signal?.throwIfAborted();
       const requiresCloudSession =
         billing.isPaid ||
         (selectedTarget?.provider === "anarlog" &&
@@ -749,6 +758,7 @@ export const useRunBatch = (sessionId: string) => {
       const requestSession = requiresCloudSession
         ? await auth.getSessionForRequest().catch(() => null)
         : null;
+      options?.signal?.throwIfAborted();
       const cloudAccessToken =
         requestSession?.access_token ?? auth.session?.access_token;
       const fallbackTarget = getBatchFallbackTarget({
@@ -780,8 +790,8 @@ export const useRunBatch = (sessionId: string) => {
         target = { ...target, apiKey: cloudAccessToken };
       }
 
-      if (!shouldUseSelectedTarget) {
-        sonnerToast.warning("Using a batch transcription provider", {
+      if (!shouldUseSelectedTarget && !options?.recovery) {
+        toast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget
               ? selectedProviderLabel(conn, selectedModel)
@@ -801,6 +811,7 @@ export const useRunBatch = (sessionId: string) => {
           dictionaryTerms,
         });
       }
+      options?.signal?.throwIfAborted();
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
         options?.numSpeakers === undefined &&
@@ -891,8 +902,9 @@ export const useRunBatch = (sessionId: string) => {
         "transcription",
         cloudsyncLeaseKey,
         async () => {
+          const jobId = options?.recovery ? `${sessionId}:recovery` : sessionId;
           const params: TranscriptionParams = {
-            session_id: sessionId,
+            session_id: jobId,
             provider: target.provider,
             file_path: filePath,
             model: target.model,
@@ -905,35 +917,59 @@ export const useRunBatch = (sessionId: string) => {
             max_speakers: options?.maxSpeakers,
           };
 
-          try {
-            await startTranscription(params, {
-              handlePersist: persist,
-              notifyOnCompletion: false,
-            });
-          } catch (error) {
-            if (
-              target.provider !== "anarlog" ||
-              target.model !== "cloud" ||
-              !isTranscriptionAuthenticationError(error)
-            ) {
-              throw error;
-            }
-
-            const refreshedSession = await auth.refreshSession();
-            if (!refreshedSession?.access_token) {
-              throw error;
-            }
-
-            if (!handlePersist) {
-              resetStagedTranscript();
-            }
-            await startTranscription(
-              { ...params, api_key: refreshedSession.access_token },
-              {
-                handlePersist: persist,
+          const run = async (params: TranscriptionParams) => {
+            options?.signal?.throwIfAborted();
+            try {
+              await startTranscription(params, {
+                signal: options?.signal,
+                handlePersist: (...args) => {
+                  if (options?.signal?.aborted) return;
+                  return persist(...args);
+                },
                 notifyOnCompletion: false,
-              },
-            );
+              });
+              options?.signal?.throwIfAborted();
+            } finally {
+              if (options?.signal?.aborted) {
+                await stopTranscription(jobId).catch(() => {});
+              }
+            }
+          };
+          try {
+            await run(params);
+          } catch (error) {
+            options?.signal?.throwIfAborted();
+            if (
+              !(
+                options?.recovery &&
+                error instanceof Error &&
+                error.message === "No speech was detected in the audio."
+              )
+            ) {
+              if (
+                target.provider !== "anarlog" ||
+                target.model !== "cloud" ||
+                !isTranscriptionAuthenticationError(error)
+              ) {
+                throw error;
+              }
+
+              const refreshedSession = await auth.refreshSession();
+              if (!refreshedSession?.access_token) {
+                throw error;
+              }
+
+              if (!handlePersist) {
+                resetStagedTranscript();
+              }
+              await run({ ...params, api_key: refreshedSession.access_token });
+            }
+          }
+
+          if (options?.recovery) {
+            options.signal?.throwIfAborted();
+            await options.recovery.persist(stagedWords, stagedHints);
+            return;
           }
 
           try {
@@ -1011,6 +1047,8 @@ export const useRunBatch = (sessionId: string) => {
                   });
                 }
               }
+              if (promoted.replaceSession)
+                await clearIncompleteCapture(sessionId);
               if (!options?.deferAudioFinalization) {
                 try {
                   await persistTranscriptWrite(() =>
@@ -1058,6 +1096,7 @@ export const useRunBatch = (sessionId: string) => {
       participants,
       spokenLanguages,
       startTranscription,
+      stopTranscription,
       sessionId,
     ],
   );

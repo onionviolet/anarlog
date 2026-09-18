@@ -14,8 +14,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
-import { getProviderProfileImageUrl } from "@anlg/supabase/profile";
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import {
+  getCustomProfileImageUrl,
+  getProviderProfileImageUrl,
+} from "@anlg/supabase/profile";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   clearAuthAnalyticsGroups,
@@ -287,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       )
         return;
       promptedAccountRef.current = sessionRef.current?.user.id ?? null;
-      sonnerToast.info(
+      toast.info(
         t`Your local notes are available. Connect this library to sync with your current account.`,
         {
           id: ACCOUNT_MISMATCH_TOAST_ID,
@@ -418,7 +421,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               );
               return;
             }
-            sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
+            toast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
             if (
               !(await restoreAdmittedSession(
                 nextSession,
@@ -542,7 +545,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
           return;
         }
-        sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
+        toast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
         promptedAccountRef.current = null;
         setConnectLibraryOpen(false);
         if (
@@ -1083,7 +1086,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getAvatarUrl = useCallback(async () => {
     const providerImageUrl = getProviderProfileImageUrl(session?.user);
-    if (providerImageUrl) {
+    if (providerImageUrl || getCustomProfileImageUrl(session?.user) === null) {
       return providerImageUrl;
     }
 
