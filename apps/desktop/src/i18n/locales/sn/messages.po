@@ -985,11 +985,6 @@ msgstr ""
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr ""
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Change"
-msgstr ""
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/contacts/profile-photo.tsx
@@ -1071,7 +1066,7 @@ msgid "Choose a channel"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, then this device will continue automatically."
+msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1139,10 +1134,6 @@ msgstr ""
 msgid "Choose files"
 msgstr ""
 
-#: src/imports/screen.tsx
-msgid "Choose files exported from this app."
-msgstr ""
-
 #: src/settings/automations/starter-config.tsx
 #: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
@@ -1174,11 +1165,6 @@ msgstr ""
 
 #: src/settings/general/summary-length.tsx
 msgid "Choose how much detail generated meeting summaries include."
-msgstr ""
-
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Choose storage location"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -1251,6 +1237,7 @@ msgstr ""
 
 #: src/changelog/index.tsx
 #: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/shared/open-note-dialog.tsx
 msgid "Close"
@@ -1302,10 +1289,6 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Cloud sync"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1424,7 +1407,6 @@ msgstr ""
 msgid "Configure Providers"
 msgstr ""
 
-#: src/onboarding/folder-location.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr ""
@@ -1476,11 +1458,6 @@ msgstr ""
 msgid "Connect Notion"
 msgstr ""
 
-#. placeholder {0}: provider.name
-#: src/imports/screen.tsx
-msgid "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-msgstr ""
-
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr ""
@@ -1499,7 +1476,7 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/imports/screen.tsx
-msgid "Connected · New meetings are imported automatically while Anarlog is running."
+msgid "Connected"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -1810,6 +1787,10 @@ msgstr ""
 msgid "Couldn't open connected accounts. Try again."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Couldn't open device add-ons. Try again."
+msgstr ""
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
 msgstr ""
@@ -2097,10 +2078,6 @@ msgstr ""
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
-msgstr ""
-
-#: src/imports/screen.tsx
-msgid "Direct connection is not available yet. You can still bring your history over with files."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -2553,6 +2530,10 @@ msgstr ""
 msgid "Generating transcript..."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Get more slots"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
 msgid "Get Pro"
@@ -2572,6 +2553,7 @@ msgstr ""
 msgid "Go back to now"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Go home"
 msgstr ""
@@ -3027,10 +3009,6 @@ msgstr ""
 msgid "Learn how to fix this"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Learn more"
-msgstr ""
-
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
 msgstr ""
@@ -3240,7 +3218,7 @@ msgstr ""
 msgid "Materials"
 msgstr ""
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Maximize"
 msgstr ""
 
@@ -3392,7 +3370,7 @@ msgstr ""
 msgid "Migration status unavailable"
 msgstr ""
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Minimize"
 msgstr ""
 
@@ -3463,6 +3441,10 @@ msgstr ""
 
 #: src/folders/sidebar.tsx
 msgid "New folder"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "New meetings are imported automatically while Anarlog is running."
 msgstr ""
 
 #: src/main/empty.tsx
@@ -3581,6 +3563,10 @@ msgstr ""
 msgid "No icons found"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "No imports yet."
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
 msgstr ""
@@ -3627,7 +3613,9 @@ msgid "No people in this organization"
 msgstr ""
 
 #: src/settings/ai/llm/configure.tsx
+#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/configure.tsx
+#: src/settings/ai/stt/select.tsx
 msgid "No providers found."
 msgstr ""
 
@@ -4503,7 +4491,7 @@ msgstr ""
 msgid "Restarting…"
 msgstr ""
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/version-history-dialog.tsx
 msgid "Restore"
 msgstr ""
@@ -5386,17 +5374,8 @@ msgstr ""
 msgid "Stop when meeting ends"
 msgstr "Mira kana musangano wapera"
 
-#: src/onboarding/index.tsx
 #: src/settings/general/storage/index.tsx
 msgid "Storage"
-msgstr ""
-
-#: src/onboarding/index.tsx
-msgid "Storage configured"
-msgstr ""
-
-#: src/onboarding/folder-location.tsx
-msgid "Storage Updated"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -5611,10 +5590,6 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Test runs are not available yet."
-msgstr ""
-
-#: src/onboarding/folder-location.tsx
-msgid "The app will restart after onboarding to apply your storage changes"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -6176,11 +6151,6 @@ msgstr ""
 msgid "When this happens"
 msgstr ""
 
-#: src/onboarding/index.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Where your notes and recordings are stored"
-msgstr ""
-
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
 msgstr ""
@@ -6291,10 +6261,6 @@ msgstr ""
 msgid "Your comment couldn’t be added. Try again."
 msgstr ""
 
-#: src/settings/stats/index.tsx
-msgid "Your conversation history."
-msgstr ""
-
 #: src/settings/stats/insights.tsx
 msgid "Your conversation patterns"
 msgstr ""
@@ -6366,10 +6332,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Your storage location is inside {cloudStorageService}"
 msgstr ""
 
 #: src/services/enhancer/summary-notification.ts

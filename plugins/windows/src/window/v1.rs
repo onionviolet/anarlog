@@ -1,6 +1,7 @@
 use crate::WindowImpl;
 
 const MAIN_WINDOW_WIDTH: f64 = 910.0;
+pub(crate) const MAIN_WINDOW_MIN_SIZE: (f64, f64) = (500.0, 500.0);
 const MAIN_WINDOW_HEIGHT: f64 = 600.0;
 const NOTE_WINDOW_WIDTH: f64 = 720.0;
 const NOTE_WINDOW_HEIGHT: f64 = 820.0;
@@ -18,6 +19,29 @@ const NOTE_WINDOW_OFFSETS: [(f64, f64); 6] = [
 ];
 const NOTE_WINDOW_OVERFLOW_OFFSET: f64 = 48.0;
 static NOTE_WINDOW_POSITIONING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(target_os = "windows")]
+fn round_window_corners(window: &tauri::WebviewWindow<tauri::Wry>) {
+    use windows::Win32::Graphics::Dwm::{
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
+    };
+
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let preference = DWMWCP_ROUND;
+    let result = unsafe {
+        DwmSetWindowAttribute(
+            windows::Win32::Foundation::HWND(hwnd.0),
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            (&preference as *const _).cast(),
+            std::mem::size_of_val(&preference) as u32,
+        )
+    };
+    if let Err(error) = result {
+        tracing::debug!(%error, "window_corner_preference_unsupported");
+    }
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq, Hash)]
 #[serde(tag = "type", content = "value")]
@@ -178,6 +202,13 @@ impl AppWindow {
             builder = builder.decorations(!matches!(self, Self::Main));
         }
 
+        #[cfg(target_os = "linux")]
+        {
+            if matches!(self, Self::Main) {
+                builder = builder.transparent(true);
+            }
+        }
+
         builder
     }
 }
@@ -203,7 +234,7 @@ impl WindowImpl for AppWindow {
                     .window_builder(app, "/app")
                     .maximizable(true)
                     .minimizable(true)
-                    .min_inner_size(500.0, 500.0)
+                    .min_inner_size(MAIN_WINDOW_MIN_SIZE.0, MAIN_WINDOW_MIN_SIZE.1)
                     .inner_size(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT);
                 builder.build()?
             }
@@ -235,6 +266,11 @@ impl WindowImpl for AppWindow {
 
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         window.set_decorations(!matches!(self, Self::Main))?;
+
+        #[cfg(target_os = "windows")]
+        if matches!(self, Self::Main) {
+            round_window_corners(&window);
+        }
 
         Ok(window)
     }

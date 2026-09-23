@@ -5,37 +5,37 @@ Origin: Anarlog
 Label: Anarlog
 Suite: stable
 Codename: stable
-Version: 1.4.24
-Date: Wed, 16 Sep 2026 05:12:48 GMT
+Version: 1.4.26
+Date: Wed, 23 Sep 2026 11:23:21 GMT
 Architectures: amd64 arm64
 Components: main
 Description: Anarlog stable desktop releases
 MD5Sum:
- 211432e8e3abb1cd349c22cb4d8d0bed 638 main/binary-amd64/Packages
- 6a98ba55d6747fc930a25b269d3eb1ad 433 main/binary-amd64/Packages.gz
- f8067d3aa4f26a60adeb2fec499e9b20 638 main/binary-arm64/Packages
- 78c2e6c5b3827fe95abf84b397a04383 433 main/binary-arm64/Packages.gz
+ 4153f4889eb29de51bfa1f66ba753f1a 638 main/binary-amd64/Packages
+ f06ec4a11a4e75f87f075bedce615096 431 main/binary-amd64/Packages.gz
+ 3c3f991a3b65c5b2c57ca6c4236c6c5f 638 main/binary-arm64/Packages
+ 1c2207f9be15b036573eca732570a439 434 main/binary-arm64/Packages.gz
 SHA1:
- 8e75ca9d154c2c00291bc03e4bf877692f06cd16 638 main/binary-amd64/Packages
- cb1a05905381b46384675f406d30023d4574759f 433 main/binary-amd64/Packages.gz
- 1f4200ac1e945530a909b2c8a5d6cf9b3bae14f7 638 main/binary-arm64/Packages
- 1f3c5a2e29896bc85179baa4ac8994cbafa8b291 433 main/binary-arm64/Packages.gz
+ 1a635dc53358e9e6aa1c425c666b40ea1e8b18de 638 main/binary-amd64/Packages
+ 33b98cd3fce4e43c6e95861db4f185f7d212bff3 431 main/binary-amd64/Packages.gz
+ 6ff9357f33fd7367370380d8f9b504703fb2cabb 638 main/binary-arm64/Packages
+ 3afa35c33be268cb47430c19788ed10c0b1e9477 434 main/binary-arm64/Packages.gz
 SHA256:
- 02c9b425a3d458e608a4c752f46b9f534c59ee486b2590c8fa519852075edc84 638 main/binary-amd64/Packages
- a75ed7adb24ce98698376dfb298c134357fdfc491ebf2bbe95afc9e9d391531e 433 main/binary-amd64/Packages.gz
- 4d26fcdb2889aaf37ce27e5ca235cb3a30e10678a0e62f54699cca0ef4762257 638 main/binary-arm64/Packages
- 42a3bf3b866c38d90232f2af7a8ac5c381bee6ddb9db24a402b6506e779e3ea7 433 main/binary-arm64/Packages.gz
+ 52638bccb96d02d3e2987c9d04794353fbb8a6c2fdc8ea0f14d23d8090c765a8 638 main/binary-amd64/Packages
+ 8020aac92efdcf7031a42e28367c945e1ea9d5502d0aee05079794d4d3eefed2 431 main/binary-amd64/Packages.gz
+ 768aec4659b9f79eb5248c94b286c68a5684ead2d386b61e605fa17499e55adb 638 main/binary-arm64/Packages
+ f7be5dfebd7da86c3409a0c6e77edd273f0f05e008a51073444cce7b350fd950 434 main/binary-arm64/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iQGzBAEBCgAdFiEEJ1B7jKGV92hWmxTHGO3nP4OmCy0FAmqqJa4ACgkQGO3nP4Om
-Cy2POwv+OViFAU3/A61n5mBd5Gxu3qiS31dPIDdmwHepzhZwZLhz6GXfODrMr4yr
-eCjnW2S3VD0fp8guiE+ak1d3dJiJ+k5SiXZ6qkhfw5KOUGs1HSQAwUNAaXT9Xdqg
-kS7YaVZCbAfbzd3fue4OkLjJtC13hkF+Oe6itE6yKlADyM8olPAOUKCEgBDdrhgw
-7GXj9MJRA2iybhxJwIaa8txd5YM7upR9pYDw01X2zDLWoeuSZMTZpFk9XJgosvff
-4i5W7cHVOxWOsAHR73AFwnw/+KknN4PKJh+WfUtF9keBHucS5yx2KiC7/Dko9Fgo
-ZzSpZQqG8XVhKOH4IA5IiQM3EPypjGQ8IQgizrVDLOrd8Z6mFeyCh+mwF1poQEOS
-zbokqBRzOYCMF/uTnbqL3YlmGiKa2uQ3aD5n7OTM8lOcg63NeA7GFlV/CTqNng9S
-X/+AAzDzFtbwaid4MdhPm0qnMyUXFe8Biwg+Z21zXBIhjydiiKJeY1dmuhxX2Mx0
-Eh9KyWZd
-=6t2Y
+iQGzBAEBCgAdFiEEJ1B7jKGV92hWmxTHGO3nP4OmCy0FAmqztyAACgkQGO3nP4Om
+Cy2XLAv+IUzyf9tpA1i3gwEdn/DA9tIfo8vOESGHtbCLQXPVPVhR1iEfcPywaAmb
+IwKKs1Q+vpHV2BOz1B9er9wlqqf2eobTMm4mnE4TYzg4/0D7TwJRNG+H3sgqd6nh
+u2dMOca5yauA+WX7aQ7usBvs3ytLIIupxT56PFOTKS5i7epluy5IM49GgQWiw40g
+cxIM5DSryRJDcYdcISQiZbFWiqpfO8ZnlmXwvtL7tBB0ug+EtUNGIrRaztm+Xt1r
+h9+AqOLMKJH3BQ0GFTIxr+3PLM0hEBNmPdeI2P1gUg+QTVlxbQiW6B0MGcVoff1f
+RIE97oRXgzZVOsxQbT4dCa1xVFfdbkbjDCJew+POedVBZTYCWYcyVlhtyGaPSNBE
+c0yQAx4TdfVHBlm4+sVpJs/Lb5Vjula9L/4udx9KB+FnIhTXdA5QzbYo4cZaLNKi
+XekEY1wJgfeCeTV8OJPTXAE0rweSRn6nuWOt2qEf0onbPh6rfStEqBJytUPUHN+G
+cNU+tQ0J
+=tYgp
 -----END PGP SIGNATURE-----

@@ -985,11 +985,6 @@ msgstr "Capture meeting chat in Memos"
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Change"
-msgstr "Change"
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/contacts/profile-photo.tsx
@@ -1071,8 +1066,8 @@ msgid "Choose a channel"
 msgstr "Choose a channel"
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, then this device will continue automatically."
-msgstr "Choose a device below to replace, then this device will continue automatically."
+msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
+msgstr "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
@@ -1139,10 +1134,6 @@ msgstr "Choose extra fields to show on each note."
 msgid "Choose files"
 msgstr "Choose files"
 
-#: src/imports/screen.tsx
-msgid "Choose files exported from this app."
-msgstr "Choose files exported from this app."
-
 #: src/settings/automations/starter-config.tsx
 #: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
@@ -1175,11 +1166,6 @@ msgstr "Choose how long recordings stay on this device."
 #: src/settings/general/summary-length.tsx
 msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
-
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Choose storage location"
-msgstr "Choose storage location"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
@@ -1251,6 +1237,7 @@ msgstr "Clone"
 
 #: src/changelog/index.tsx
 #: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/shared/open-note-dialog.tsx
 msgid "Close"
@@ -1303,10 +1290,6 @@ msgstr "Cloud API URL copied"
 #: src/settings/sync/index.tsx
 msgid "Cloud sync"
 msgstr "Cloud sync"
-
-#: src/settings/sync/index.tsx
-msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
-msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
 
 #: src/settings/general/notification.tsx
 msgid "Cloud sync complete"
@@ -1424,7 +1407,6 @@ msgstr "Configure a chat model to use the quick composer."
 msgid "Configure Providers"
 msgstr "Configure Providers"
 
-#: src/onboarding/folder-location.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr "Confirm"
@@ -1476,11 +1458,6 @@ msgstr "Connect Linear"
 msgid "Connect Notion"
 msgstr "Connect Notion"
 
-#. placeholder {0}: provider.name
-#: src/imports/screen.tsx
-msgid "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-msgstr "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr "Connect Outlook"
@@ -1499,8 +1476,8 @@ msgid "Connect your integration"
 msgstr "Connect your integration"
 
 #: src/imports/screen.tsx
-msgid "Connected · New meetings are imported automatically while Anarlog is running."
-msgstr "Connected · New meetings are imported automatically while Anarlog is running."
+msgid "Connected"
+msgstr "Connected"
 
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
@@ -1810,6 +1787,10 @@ msgstr "Couldn't load your profile. Reopen this page to try again."
 msgid "Couldn't open connected accounts. Try again."
 msgstr "Couldn't open connected accounts. Try again."
 
+#: src/settings/sync/index.tsx
+msgid "Couldn't open device add-ons. Try again."
+msgstr "Couldn't open device add-ons. Try again."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
 msgstr "Couldn't save your new badges."
@@ -2098,10 +2079,6 @@ msgstr "Dictation uses your microphone, transcription provider, languages, and d
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
 msgstr "Dictionary"
-
-#: src/imports/screen.tsx
-msgid "Direct connection is not available yet. You can still bring your history over with files."
-msgstr "Direct connection is not available yet. You can still bring your history over with files."
 
 #: src/settings/automations/index.tsx
 msgid "Disable"
@@ -2553,6 +2530,10 @@ msgstr "Generating title..."
 msgid "Generating transcript..."
 msgstr "Generating transcript..."
 
+#: src/settings/sync/index.tsx
+msgid "Get more slots"
+msgstr "Get more slots"
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
 msgid "Get Pro"
@@ -2572,6 +2553,7 @@ msgstr "Get your attention when Anarlog finishes work in the background."
 msgid "Go back to now"
 msgstr "Go back to now"
 
+#: src/main/windows-title-bar.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Go home"
 msgstr "Go home"
@@ -3027,10 +3009,6 @@ msgstr "Last used {0}"
 msgid "Learn how to fix this"
 msgstr "Learn how to fix this"
 
-#: src/settings/sync/index.tsx
-msgid "Learn more"
-msgstr "Learn more"
-
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
 msgstr "Leave {workspaceName}?"
@@ -3240,7 +3218,7 @@ msgstr "Match your device"
 msgid "Materials"
 msgstr "Materials"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Maximize"
 msgstr "Maximize"
 
@@ -3392,7 +3370,7 @@ msgstr "Migration needs attention"
 msgid "Migration status unavailable"
 msgstr "Migration status unavailable"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Minimize"
 msgstr "Minimize"
 
@@ -3464,6 +3442,10 @@ msgstr "New chat"
 #: src/folders/sidebar.tsx
 msgid "New folder"
 msgstr "New folder"
+
+#: src/imports/screen.tsx
+msgid "New meetings are imported automatically while Anarlog is running."
+msgstr "New meetings are imported automatically while Anarlog is running."
 
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
@@ -3581,6 +3563,10 @@ msgstr "No folders yet. Create one to group notes and materials."
 msgid "No icons found"
 msgstr "No icons found"
 
+#: src/imports/screen.tsx
+msgid "No imports yet."
+msgstr "No imports yet."
+
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
 msgstr "No items today"
@@ -3627,7 +3613,9 @@ msgid "No people in this organization"
 msgstr "No people in this organization"
 
 #: src/settings/ai/llm/configure.tsx
+#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/configure.tsx
+#: src/settings/ai/stt/select.tsx
 msgid "No providers found."
 msgstr "No providers found."
 
@@ -4503,7 +4491,7 @@ msgstr "Restart App"
 msgid "Restarting…"
 msgstr "Restarting…"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/version-history-dialog.tsx
 msgid "Restore"
 msgstr "Restore"
@@ -5386,18 +5374,9 @@ msgstr "Stop voice input"
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 
-#: src/onboarding/index.tsx
 #: src/settings/general/storage/index.tsx
 msgid "Storage"
 msgstr "Storage"
-
-#: src/onboarding/index.tsx
-msgid "Storage configured"
-msgstr "Storage configured"
-
-#: src/onboarding/folder-location.tsx
-msgid "Storage Updated"
-msgstr "Storage Updated"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Story Collector"
@@ -5612,10 +5591,6 @@ msgstr "Test failed ({0})"
 #: src/settings/automations/index.tsx
 msgid "Test runs are not available yet."
 msgstr "Test runs are not available yet."
-
-#: src/onboarding/folder-location.tsx
-msgid "The app will restart after onboarding to apply your storage changes"
-msgstr "The app will restart after onboarding to apply your storage changes"
 
 #: src/shared-notes/index.tsx
 msgid "The link may have expired or its access may have changed."
@@ -6176,11 +6151,6 @@ msgstr "What's new in {version}?"
 msgid "When this happens"
 msgstr "When this happens"
 
-#: src/onboarding/index.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Where your notes and recordings are stored"
-msgstr "Where your notes and recordings are stored"
-
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
 msgstr "whisper.cpp models"
@@ -6291,10 +6261,6 @@ msgstr "Your busiest weekdays are tied at {peakCount} conversations each in the 
 msgid "Your comment couldn’t be added. Try again."
 msgstr "Your comment couldn’t be added. Try again."
 
-#: src/settings/stats/index.tsx
-msgid "Your conversation history."
-msgstr "Your conversation history."
-
 #: src/settings/stats/insights.tsx
 msgid "Your conversation patterns"
 msgstr "Your conversation patterns"
@@ -6367,10 +6333,6 @@ msgstr "Your Pro trial just started"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-
-#: src/settings/sync/index.tsx
-msgid "Your storage location is inside {cloudStorageService}"
-msgstr "Your storage location is inside {cloudStorageService}"
 
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."
