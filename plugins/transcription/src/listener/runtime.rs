@@ -18,6 +18,7 @@ pub struct TauriRuntime {
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
     pub sleep_prevention: std::sync::Arc<RecordingSleepPrevention>,
+    pub media_pause_enabled: crate::MediaPauseEnabled,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -51,6 +52,13 @@ impl ListenerRuntime for TauriRuntime {
                 let _ = self.app.tray().set_start_disabled(true);
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
+                if self.media_pause_enabled.enabled() {
+                    tauri::async_runtime::spawn(async {
+                        if let Err(error) = anlg_media_control::pause_playback().await {
+                            tracing::warn!(%error, "media_pause_failed");
+                        }
+                    });
+                }
             }
             anlg_transcription_core::listener::SessionLifecycleEvent::Inactive {
                 session_id,

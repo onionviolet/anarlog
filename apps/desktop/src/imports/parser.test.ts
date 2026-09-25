@@ -50,6 +50,39 @@ describe("meeting export parser", () => {
     ]);
   });
 
+  it("parses timestamped speaker turns from a text export", () => {
+    const [meeting] = parseMeetingExport({
+      path: "/tmp/meeting.txt",
+      name: "meeting.txt",
+      content:
+        "Meeting metadata before the transcript " +
+        "[00:02 - 00:03] Alexis Murat: Le classique. " +
+        "[00:04 - 00:07] Alexis Murat: Hello, comment ça va? " +
+        "[00:07 - 00:08] Camille Vingere: Ça va, et toi?",
+    });
+
+    expect(meeting?.transcript).toEqual([
+      {
+        speaker: "Alexis Murat",
+        text: "Le classique.",
+        startMs: 2_000,
+        endMs: 3_000,
+      },
+      {
+        speaker: "Alexis Murat",
+        text: "Hello, comment ça va?",
+        startMs: 4_000,
+        endMs: 7_000,
+      },
+      {
+        speaker: "Camille Vingere",
+        text: "Ça va, et toi?",
+        startMs: 7_000,
+        endMs: 8_000,
+      },
+    ]);
+  });
+
   it("parses Granola MCP meeting fields", () => {
     const [meeting] = parseMeetingExport({
       path: "mcp://granola/meeting-1.json",

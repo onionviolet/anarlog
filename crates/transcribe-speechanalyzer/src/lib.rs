@@ -221,7 +221,8 @@ impl LivePartial {
         let text = normalize_transcript_text(&self.text);
         let is_final = self.is_final;
 
-        let words = if self.words.is_empty() {
+        // The full hypothesis is authoritative when timed words lose characters.
+        let words = if self.words.is_empty() || !words_cover_text(&self.words, &text) {
             stream_words_from_text(&text, start, duration)
         } else {
             self.words
@@ -474,7 +475,19 @@ pub fn batch_response_from_transcripts(channels: Vec<FileTranscript>) -> batch::
         .iter()
         .map(|channel| channel.duration_seconds)
         .fold(MIN_SYNTHETIC_DURATION_SECONDS, f64::max);
-    let metadata = metadata_json(duration_seconds, channels.len() as u32);
+    let has_synthetic_timing = channels.iter().any(|channel| {
+        channel.words.is_empty()
+            || !words_cover_text(&channel.words, &normalize_transcript_text(&channel.text))
+    });
+    let metadata = metadata_json(
+        duration_seconds,
+        channels.len() as u32,
+        if has_synthetic_timing {
+            "synthetic_text"
+        } else {
+            "native"
+        },
+    );
 
     batch::Response {
         metadata,
@@ -484,19 +497,29 @@ pub fn batch_response_from_transcripts(channels: Vec<FileTranscript>) -> batch::
                 .enumerate()
                 .map(|(channel_index, channel)| {
                     let transcript = normalize_transcript_text(&channel.text);
-                    let words = channel
-                        .words
-                        .into_iter()
-                        .map(|word| batch::Word {
-                            word: word.text.clone(),
-                            start: word.start,
-                            end: word.end.max(word.start + MIN_SYNTHETIC_DURATION_SECONDS),
-                            confidence: word.confidence.unwrap_or(1.0),
-                            channel: channel_index as i32,
-                            speaker: None,
-                            punctuated_word: Some(word.text),
-                        })
-                        .collect();
+                    let words = if channel.words.is_empty()
+                        || !words_cover_text(&channel.words, &transcript)
+                    {
+                        batch_words_from_text(
+                            &transcript,
+                            channel.duration_seconds,
+                            channel_index as i32,
+                        )
+                    } else {
+                        channel
+                            .words
+                            .into_iter()
+                            .map(|word| batch::Word {
+                                word: word.text.clone(),
+                                start: word.start,
+                                end: word.end.max(word.start + MIN_SYNTHETIC_DURATION_SECONDS),
+                                confidence: word.confidence.unwrap_or(1.0),
+                                channel: channel_index as i32,
+                                speaker: None,
+                                punctuated_word: Some(word.text),
+                            })
+                            .collect()
+                    };
 
                     batch::Channel {
                         alternatives: vec![batch::Alternatives {
@@ -523,14 +546,32 @@ fn metadata() -> stream::Metadata {
     }
 }
 
-fn metadata_json(duration_seconds: f64, channels: u32) -> serde_json::Value {
+fn metadata_json(duration_seconds: f64, channels: u32, timing_source: &str) -> serde_json::Value {
     let mut value = serde_json::to_value(metadata()).unwrap_or_else(|_| serde_json::json!({}));
     if let Some(object) = value.as_object_mut() {
         object.insert("duration".to_string(), serde_json::json!(duration_seconds));
         object.insert("channels".to_string(), serde_json::json!(channels));
-        object.insert("timing_source".to_string(), serde_json::json!("native"));
+        object.insert(
+            "timing_source".to_string(),
+            serde_json::json!(timing_source),
+        );
     }
     value
+}
+
+fn batch_words_from_text(text: &str, duration: f64, channel: i32) -> Vec<batch::Word> {
+    stream_words_from_text(text, 0.0, duration.max(MIN_SYNTHETIC_DURATION_SECONDS))
+        .into_iter()
+        .map(|word| batch::Word {
+            word: word.word.clone(),
+            start: word.start,
+            end: word.end,
+            confidence: word.confidence,
+            channel,
+            speaker: None,
+            punctuated_word: Some(word.word),
+        })
+        .collect()
 }
 
 fn stream_words_from_text(text: &str, start: f64, duration: f64) -> Vec<stream::Word> {
@@ -564,6 +605,21 @@ fn stream_words_from_text(text: &str, start: f64, duration: f64) -> Vec<stream::
             }
         })
         .collect()
+}
+
+fn words_cover_text(words: &[Word], text: &str) -> bool {
+    let mut remaining = text;
+    for word in words {
+        let token = normalize_transcript_text(&word.text);
+        if token.is_empty() {
+            return false;
+        }
+        let Some(rest) = remaining.trim_start().strip_prefix(&token) else {
+            return false;
+        };
+        remaining = rest;
+    }
+    remaining.trim().is_empty()
 }
 
 fn split_words(text: &str) -> Vec<&str> {

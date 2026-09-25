@@ -232,6 +232,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tiptap",
  "tokio",
+ "transcript",
  "utoipa",
  "uuid",
 ]
@@ -540,6 +541,7 @@ dependencies = [
  "api-auth",
  "api-calendar",
  "api-cloud",
+ "api-crm",
  "api-env",
  "api-mail",
  "api-meeting-import",
@@ -654,6 +656,23 @@ dependencies = [
  "utoipa",
  "uuid",
  "wiremock",
+]
+
+[[package]]
+name = "api-crm"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-error",
+ "api-nango",
+ "axum",
+ "futures-util",
+ "nango",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "urlencoding",
+ "utoipa",
 ]
 
 [[package]]
@@ -9992,6 +10011,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "media-control"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "thiserror 2.0.18",
+ "tracing",
+ "windows 0.62.2",
+ "zbus",
+]
+
+[[package]]
 name = "meeting-capture"
 version = "0.1.0"
 dependencies = [
@@ -11699,6 +11729,7 @@ dependencies = [
  "transcribe-speechanalyzer",
  "url",
  "user-error",
+ "uuid",
  "wiremock",
  "ws-client",
 ]
@@ -17909,6 +17940,7 @@ dependencies = [
  "db-app",
  "embedding",
  "language",
+ "media-control",
  "objc2-foundation",
  "owhisper-client",
  "owhisper-interface",

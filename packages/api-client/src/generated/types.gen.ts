@@ -343,6 +343,29 @@ export type CreatedApiKey = ApiKeyInfo & {
     key: string;
 };
 
+export type CrmContact = {
+    companyName?: string | null;
+    email?: string | null;
+    id?: string | null;
+    jobTitle?: string | null;
+    linkedinUrl?: string | null;
+    name?: string | null;
+    phone?: string | null;
+    url?: string | null;
+};
+
+export type CrmSearchContactsRequest = {
+    connection_id: string;
+    email?: string | null;
+    limit?: number | null;
+    name?: string | null;
+    provider: string;
+};
+
+export type CrmSearchContactsResponse = {
+    contacts: Array<CrmContact>;
+};
+
 export type CurrentAttachmentBackup = {
     ciphertextSha256: string;
     ciphertextSizeBytes: number;
@@ -1113,6 +1136,17 @@ export type Meeting = {
 };
 
 export type MeetingExport = Meeting & {
+    /**
+     * Recorded microphone/call context intervals (`sessions.metadata_json`
+     * `speaker_context`) used to label speakers the same way the desktop
+     * transcript view does.
+     */
+    speaker_context?: unknown;
+    /**
+     * People referenced by transcript speaker assignments (including the
+     * recording user) who may not appear among the meeting participants.
+     */
+    speakers?: Array<Speaker>;
     transcripts: Array<Transcript>;
 };
 
@@ -1624,6 +1658,12 @@ export type SnapshotReceipt = {
     published_at: string;
     revision: number;
     session_id: string;
+};
+
+export type Speaker = {
+    human_id: string;
+    is_self?: boolean;
+    name: string;
 };
 
 export type StableSharedNoteSnapshot = {
@@ -2290,6 +2330,41 @@ export type OutlookListEventsResponses = {
 };
 
 export type OutlookListEventsResponse2 = OutlookListEventsResponses[keyof OutlookListEventsResponses];
+
+export type CrmSearchContactsData = {
+    body: CrmSearchContactsRequest;
+    path?: never;
+    query?: never;
+    url: '/crm/search-contacts';
+};
+
+export type CrmSearchContactsErrors = {
+    /**
+     * Unknown provider or missing query
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * No Nango connection for the provider
+     */
+    404: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type CrmSearchContactsResponses = {
+    /**
+     * Matching CRM contacts
+     */
+    200: CrmSearchContactsResponse;
+};
+
+export type CrmSearchContactsResponse2 = CrmSearchContactsResponses[keyof CrmSearchContactsResponses];
 
 export type FathomImportMeetingsData = {
     body: ImportMeetingsRequest;

@@ -185,6 +185,48 @@
         ]
       }
     },
+    "/crm/search-contacts": {
+      "post": {
+        "tags": [
+          "crm"
+        ],
+        "operationId": "crm_search_contacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmSearchContactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Matching CRM contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrmSearchContactsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown provider or missing query"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "No Nango connection for the provider"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/fathom/import-meetings": {
       "post": {
         "tags": [
@@ -6566,6 +6608,108 @@
           }
         ]
       },
+      "CrmContact": {
+        "type": "object",
+        "properties": {
+          "companyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jobTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedinUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CrmSearchContactsRequest": {
+        "type": "object",
+        "required": [
+          "provider",
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmSearchContactsResponse": {
+        "type": "object",
+        "required": [
+          "contacts"
+        ],
+        "properties": {
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrmContact"
+            }
+          }
+        }
+      },
       "CurrentAttachmentBackup": {
         "type": "object",
         "required": [
@@ -9332,6 +9476,16 @@
               "transcripts"
             ],
             "properties": {
+              "speaker_context": {
+                "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+              },
+              "speakers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Speaker"
+                },
+                "description": "People referenced by transcript speaker assignments (including the\nrecording user) who may not appear among the meeting participants."
+              },
               "transcripts": {
                 "type": "array",
                 "items": {
@@ -11365,6 +11519,24 @@
             "format": "int64"
           },
           "session_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Speaker": {
+        "type": "object",
+        "required": [
+          "human_id",
+          "name"
+        ],
+        "properties": {
+          "human_id": {
+            "type": "string"
+          },
+          "is_self": {
+            "type": "boolean"
+          },
+          "name": {
             "type": "string"
           }
         }
@@ -13894,6 +14066,10 @@
     {
       "name": "llm",
       "description": "LLM chat completions proxy"
+    },
+    {
+      "name": "crm",
+      "description": "CRM contact lookup"
     }
   ]
 }

@@ -107,6 +107,106 @@ fn final_partials_keep_native_word_timings() {
 }
 
 #[test]
+fn final_partials_restore_missing_characters_from_full_text() {
+    let partial = LivePartial {
+        source: "system".to_string(),
+        text: "une intégration complète".to_string(),
+        is_final: true,
+        start: 0.0,
+        end: 3.0,
+        words: vec![
+            Word {
+                text: "une".to_string(),
+                start: 0.0,
+                end: 1.0,
+                confidence: Some(0.9),
+            },
+            Word {
+                text: "ingration".to_string(),
+                start: 1.0,
+                end: 2.0,
+                confidence: Some(0.4),
+            },
+            Word {
+                text: "complète".to_string(),
+                start: 2.0,
+                end: 3.0,
+                confidence: Some(0.9),
+            },
+        ],
+    };
+
+    let stream::StreamResponse::TranscriptResponse { channel, .. } = partial.into_stream_response()
+    else {
+        panic!("expected transcript response");
+    };
+
+    let words = &channel.alternatives[0].words;
+    assert_eq!(
+        words
+            .iter()
+            .map(|word| word.word.as_str())
+            .collect::<Vec<_>>(),
+        vec!["une", "intégration", "complète"]
+    );
+}
+
+#[test]
+fn timed_words_must_preserve_word_boundaries() {
+    let words = vec![Word {
+        text: "somehello".to_string(),
+        start: 0.0,
+        end: 1.0,
+        confidence: None,
+    }];
+
+    assert!(!words_cover_text(&words, "some hello"));
+    assert!(words_cover_text(&words, "somehello"));
+}
+
+#[test]
+fn final_partials_keep_native_chinese_word_timings() {
+    let partial = LivePartial {
+        source: "system".to_string(),
+        text: "你好世界".to_string(),
+        is_final: true,
+        start: 0.0,
+        end: 2.0,
+        words: vec![
+            Word {
+                text: "你好".to_string(),
+                start: 0.1,
+                end: 0.8,
+                confidence: Some(0.8),
+            },
+            Word {
+                text: "世界".to_string(),
+                start: 0.9,
+                end: 1.7,
+                confidence: Some(0.7),
+            },
+        ],
+    };
+
+    let stream::StreamResponse::TranscriptResponse { channel, .. } = partial.into_stream_response()
+    else {
+        panic!("expected transcript response");
+    };
+
+    let words = &channel.alternatives[0].words;
+    assert_eq!(
+        words
+            .iter()
+            .map(|word| word.word.as_str())
+            .collect::<Vec<_>>(),
+        vec!["你好", "世界"]
+    );
+    assert_eq!(words[0].start, 0.1);
+    assert_eq!(words[1].start, 0.9);
+    assert_eq!(words[1].confidence, 0.7);
+}
+
+#[test]
 fn volatile_partials_synthesize_word_timings() {
     let partial = LivePartial {
         source: "microphone".to_string(),
@@ -133,12 +233,20 @@ fn batch_response_reports_native_timing_source() {
     let response = batch_response_from_transcripts(vec![FileTranscript {
         text: "hello  world".to_string(),
         duration_seconds: 2.0,
-        words: vec![Word {
-            text: "hello".to_string(),
-            start: 0.0,
-            end: 0.5,
-            confidence: Some(0.8),
-        }],
+        words: vec![
+            Word {
+                text: "hello".to_string(),
+                start: 0.0,
+                end: 0.5,
+                confidence: Some(0.8),
+            },
+            Word {
+                text: "world".to_string(),
+                start: 0.5,
+                end: 1.2,
+                confidence: Some(0.7),
+            },
+        ],
     }]);
 
     assert_eq!(
@@ -147,5 +255,69 @@ fn batch_response_reports_native_timing_source() {
     );
     assert_eq!(response.metadata["timing_source"], "native");
     assert_eq!(response.metadata["duration"], 2.0);
-    assert_eq!(response.results.channels[0].alternatives[0].words.len(), 1);
+    assert_eq!(response.results.channels[0].alternatives[0].words.len(), 2);
+    assert_eq!(
+        response.results.channels[0].alternatives[0].words[1].start,
+        0.5
+    );
+}
+
+#[test]
+fn batch_response_keeps_native_chinese_word_timings() {
+    let response = batch_response_from_transcripts(vec![FileTranscript {
+        text: "你好世界".to_string(),
+        duration_seconds: 2.0,
+        words: vec![
+            Word {
+                text: "你好".to_string(),
+                start: 0.1,
+                end: 0.8,
+                confidence: Some(0.8),
+            },
+            Word {
+                text: "世界".to_string(),
+                start: 0.9,
+                end: 1.7,
+                confidence: Some(0.7),
+            },
+        ],
+    }]);
+
+    let words = &response.results.channels[0].alternatives[0].words;
+    assert_eq!(response.metadata["timing_source"], "native");
+    assert_eq!(
+        words
+            .iter()
+            .map(|word| word.word.as_str())
+            .collect::<Vec<_>>(),
+        vec!["你好", "世界"]
+    );
+    assert_eq!(words[0].start, 0.1);
+    assert_eq!(words[1].start, 0.9);
+    assert_eq!(words[1].confidence, 0.7);
+}
+
+#[test]
+fn batch_words_restore_missing_characters_from_full_text() {
+    let response = batch_response_from_transcripts(vec![FileTranscript {
+        text: "une intégration complète".to_string(),
+        duration_seconds: 3.0,
+        words: vec![Word {
+            text: "ingration".to_string(),
+            start: 1.0,
+            end: 2.0,
+            confidence: Some(0.4),
+        }],
+    }]);
+
+    let words = &response.results.channels[0].alternatives[0].words;
+    assert_eq!(
+        words
+            .iter()
+            .map(|word| word.word.as_str())
+            .collect::<Vec<_>>(),
+        vec!["une", "intégration", "complète"]
+    );
+    assert!(words.iter().all(|word| word.channel == 0));
+    assert_eq!(response.metadata["timing_source"], "synthetic_text");
 }
