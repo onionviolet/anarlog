@@ -39,12 +39,14 @@ export function TemplatePickerPopover({
   onSelectTemplate,
   usedTemplateId,
   onRegenerateUsed,
+  usedTemplateActionLabel,
   isRegenerating = false,
   trigger,
 }: {
   onSelectTemplate: (selection: TemplateSelection) => void;
   usedTemplateId?: string | null;
   onRegenerateUsed?: () => void;
+  usedTemplateActionLabel?: string;
   isRegenerating?: boolean;
   trigger: React.ReactNode;
 }) {
@@ -460,7 +462,7 @@ export function TemplatePickerPopover({
                               }
                               regenerateLabel={
                                 isUsedTemplate && onRegenerateUsed
-                                  ? t`Regenerate`
+                                  ? (usedTemplateActionLabel ?? t`Regenerate`)
                                   : undefined
                               }
                               isRegenerating={isRegenerating}

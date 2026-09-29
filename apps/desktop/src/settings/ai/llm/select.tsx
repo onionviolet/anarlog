@@ -27,6 +27,7 @@ import {
 
 import {
   normalizeReasoningEffort,
+  supportsDisabledReasoning,
   supportsReasoningEffort,
 } from "~/ai/reasoning-effort";
 import { useAuth } from "~/auth";
@@ -78,6 +79,14 @@ import {
 import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 import { useConfigValues } from "~/shared/config";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
+
+export const getVisibleReasoningEffort = (
+  value: unknown,
+  disabledReasoningSupported: boolean,
+) => {
+  const effort = normalizeReasoningEffort(value);
+  return !disabledReasoningSupported && effort === "none" ? "default" : effort;
+};
 
 export function SelectProviderAndModel() {
   const { t } = useLingui();
@@ -247,6 +256,14 @@ export function SelectProviderAndModel() {
         model: activePendingSelection.model,
       }
     : (defaultSelection ?? visibleSelection);
+  const disabledReasoningSupported = supportsDisabledReasoning(
+    effectiveSelection.provider,
+    effectiveSelection.model,
+  );
+  const visibleReasoningEffort = getVisibleReasoningEffort(
+    current_llm_reasoning_effort,
+    disabledReasoningSupported,
+  );
 
   const health = useConnectionHealth();
   const isConfigured = !!(
@@ -460,15 +477,22 @@ export function SelectProviderAndModel() {
         <SettingRow
           title={<Trans>Reasoning effort</Trans>}
           description={
-            <Trans>
-              How much the model thinks before answering. Default leaves it to
-              the provider.
-            </Trans>
+            disabledReasoningSupported ? (
+              <Trans>
+                How much the model thinks before answering. Ollama summaries and
+                titles skip reasoning.
+              </Trans>
+            ) : (
+              <Trans>
+                How much the model thinks before answering. Default leaves it to
+                the provider.
+              </Trans>
+            )
           }
         >
           {(labelProps) => (
             <Select
-              value={normalizeReasoningEffort(current_llm_reasoning_effort)}
+              value={visibleReasoningEffort}
               onValueChange={(value) =>
                 setReasoningEffort(normalizeReasoningEffort(value))
               }
@@ -480,6 +504,11 @@ export function SelectProviderAndModel() {
                 <SelectItem value="default">
                   <Trans>Default</Trans>
                 </SelectItem>
+                {disabledReasoningSupported ? (
+                  <SelectItem value="none">
+                    <Trans>Off</Trans>
+                  </SelectItem>
+                ) : null}
                 <SelectItem value="low">
                   <Trans>Low</Trans>
                 </SelectItem>

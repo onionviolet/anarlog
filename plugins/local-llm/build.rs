@@ -1,3 +1,7 @@
+#[cfg(target_os = "macos")]
+#[path = "../../build-support/swift_link_layout.rs"]
+mod swift_link_layout;
+
 const COMMANDS: &[&str] = &[
     "models_dir",
     "is_model_downloaded",
@@ -21,6 +25,7 @@ fn main() {
         swift_rs::SwiftLinker::new("14.2")
             .with_package("local-llm-swift", "./swift-lib/")
             .link();
+        swift_link_layout::stage_static_library("local-llm-swift");
 
         println!("cargo:rerun-if-changed=swift-lib/src");
         println!("cargo:rerun-if-changed=swift-lib/Package.swift");

@@ -69,6 +69,7 @@ it.each(["crisp", "balanced", "detailed"] as const)(
       enhanceSystem: { language: "en", formatOverride },
     });
     expect(request.system).toContain("Rendered system prompt");
+    expect(request.maxOutputTokens).toBe(8192);
     expect(request.system).not.toMatch(
       /never put prose|bullets per section|# Next Steps/,
     );
@@ -117,3 +118,43 @@ it("adds length guidance to prompts rendered from a template with sections", asy
   expect(request.prompt).toContain("Keep every requested template section");
   expect(request.prompt).not.toMatch(/\d to \d sections/);
 });
+it.each([
+  [4096, "ollama.chat", "qwen3.5:4b"],
+  [8192, "ollama.chat", "gpt-oss:20b"],
+  [8192, "openai", "gpt-5"],
+])(
+  "uses a %i-token summary cap for %s/%s",
+  async (maxOutputTokens, provider, modelId) => {
+    const args: TaskArgsMapTransformed["enhance"] = {
+      language: "en",
+      formatOverride: "",
+      summaryLength: "balanced",
+      session: { title: "Launch", startedAt: null, endedAt: null, event: null },
+      participants: [],
+      template: null,
+      preMeetingMemo: "",
+      postMeetingMemo: "",
+      transcripts: [
+        {
+          startedAt: null,
+          endedAt: null,
+          segments: [{ speaker: "John", text: "a".repeat(636) }],
+        },
+      ],
+      imageContext: [],
+      dictionaryTerms: [],
+    };
+
+    for await (const _ of enhanceWorkflow.executeWorkflow!({
+      model: { provider, modelId } as LanguageModel,
+      args,
+      onProgress: vi.fn(),
+      signal: new AbortController().signal,
+    })) {
+    }
+
+    expect(mocks.streamText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens }),
+    );
+  },
+);

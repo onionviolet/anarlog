@@ -22,6 +22,7 @@ import { getEnhancerService } from "~/services/enhancer";
 import { catalogLocalSessionAudio } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useUpdateSession } from "~/session/queries";
+import { useConfigValue } from "~/shared/config";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { createTranscript } from "~/stt/queries";
 
@@ -56,6 +57,8 @@ function isAudioUploadPath(path: string) {
 }
 
 export function useUploadFile(sessionId: string) {
+  const autoSummaryAfterRecording =
+    useConfigValue("auto_summary_after_recording") !== false;
   const runBatch = useRunBatch(sessionId);
   const queryClient = useQueryClient();
   const handleBatchStarted = useListener((state) => state.handleBatchStarted);
@@ -75,6 +78,7 @@ export function useUploadFile(sessionId: string) {
   });
 
   const triggerEnhance = useCallback(async () => {
+    if (!autoSummaryAfterRecording) return;
     const service = getEnhancerService();
     if (!service) return;
 
@@ -92,15 +96,16 @@ export function useUploadFile(sessionId: string) {
     } catch (error) {
       console.error("[enhancer] failed to enhance uploaded file", error);
     }
-  }, [sessionId, sessionTab, updateSessionTabState]);
+  }, [autoSummaryAfterRecording, sessionId, sessionTab, updateSessionTabState]);
 
   const triggerEnhanceIfSummaryEmpty = useCallback(async () => {
+    if (!autoSummaryAfterRecording) return;
     try {
       await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
     } catch (error) {
       console.error("[enhancer] failed to queue uploaded file", error);
     }
-  }, [sessionId]);
+  }, [autoSummaryAfterRecording, sessionId]);
 
   const applyEstimatedAudioNoteDate = useCallback(
     async (filePath: string) => {

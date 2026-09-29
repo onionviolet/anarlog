@@ -21,6 +21,7 @@ export type CaptureLifecycleMarker = {
   memo: string;
   provider?: string;
   model?: string;
+  autoSummaryAfterRecording?: boolean;
   summaryMode?: "regenerate" | "if_empty";
   refreshSummaryAfterRepair?: boolean;
 };
@@ -183,6 +184,9 @@ function parseCaptureLifecycleMarker(
         ? { provider: parsed.provider }
         : {}),
       ...(typeof parsed.model === "string" ? { model: parsed.model } : {}),
+      ...(typeof parsed.autoSummaryAfterRecording === "boolean"
+        ? { autoSummaryAfterRecording: parsed.autoSummaryAfterRecording }
+        : {}),
       ...(parsed.summaryMode === "regenerate" ||
       parsed.summaryMode === "if_empty"
         ? { summaryMode: parsed.summaryMode }

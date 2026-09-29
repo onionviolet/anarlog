@@ -7,7 +7,7 @@ description: Execute Anarlog work immediately while preserving useful decisions 
 
 Apply to Anarlog repository or Anarlog desktop, web, mobile, and API work. Apply the same workflow in other checkouts and worktrees.
 
-Use Linear for work tracking and facts worth remembering. Keep implementation and verification details in commits, PRs, and CI.
+Use the tracker authorized for this checkout or fork for work tracking and facts worth remembering. The upstream Linear locations below are references, not proof that a private fork uses that workspace. Confirm the repository and intended team before any external write. Keep implementation and verification details in commits, PRs, and CI.
 
 - Team: **Anarlog** (`ANLG`).
 - Workspace: [fastrepl-inc](https://linear.app/fastrepl-inc).

@@ -89,8 +89,10 @@ impl CaptureProtocol {
         }
 
         let samples = bytes
-            .chunks_exact(2)
-            .map(|sample| i16::from_le_bytes([sample[0], sample[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|sample| i16::from_le_bytes(*sample))
             .collect();
         let speaker = SpeakerHint::from_wire(wire.speaker_name, wire.participant_id);
         let end_ms = wire

@@ -97,16 +97,16 @@ Postgres directly for the live happy-path tests.
 Run from the repository root:
 
 ```bash
-cargo test -p anarlog-cli
-cargo test -p tauri-plugin-local-api
-cargo test -p api-cloud
-cargo test -p api openapi::tests
-cargo check -p api-client
+cargo test --locked -p anarlog-cli
+cargo test --locked -p tauri-plugin-local-api
+cargo test --locked -p api-cloud
+cargo test --locked -p api openapi::tests
+cargo check --locked -p api-client
 supabase test db
-pnpm -F desktop exec vitest run \
+pnpm -F @anlg/desktop exec vitest run \
   src/cloud-api/client.test.ts \
   src/settings/developers/index.test.tsx
-pnpm -F desktop typecheck
+pnpm -F @anlg/desktop typecheck
 pnpm exec dprint check
 ```
 
@@ -120,7 +120,7 @@ generation. A generated diff after the second run is a failure.
 
 ## Local CLI
 
-Build the candidate CLI with `cargo build -p anarlog-cli`, then use the built
+Build the candidate CLI with `cargo build --locked -p anarlog-cli`, then use the built
 binary for every step.
 
 1. Run `anarlog --json doctor`.
@@ -183,7 +183,7 @@ lane by invoking server handlers directly.
    two-page transcript/history traversal, missing IDs, and invalid arguments.
 4. Run `resources/list`, `resources/templates/list`, and `resources/read` for a
    meeting, transcript page, and recurring series.
-5. Require read-only, non-destructive, and idempotent tool annotations.
+5. Verify annotations against each tool's actual effects: meeting reads, file exports and local proposal mutations are distinct. Do not require every local proposal tool to claim read-only or idempotent behavior. Compare the candidate's protocol snapshots and transport tests.
 6. Compare the returned values with the CLI lane.
 7. Capture stdout and stderr separately. Stdout must contain only MCP protocol
    frames; diagnostics belong on stderr. Client shutdown must terminate the

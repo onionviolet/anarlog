@@ -1,6 +1,8 @@
 import type { defaultSettingsMiddleware } from "ai";
 
-const REASONING_EFFORTS = ["default", "low", "medium", "high"] as const;
+import type { CharTask } from "@anlg/api-client";
+
+const REASONING_EFFORTS = ["default", "none", "low", "medium", "high"] as const;
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 export const normalizeReasoningEffort = (value: unknown): ReasoningEffort =>
@@ -13,6 +15,25 @@ export const normalizeReasoningEffort = (value: unknown): ReasoningEffort =>
 export const supportsReasoningEffort = (providerId: string): boolean =>
   providerId !== "anarlog" && providerId !== "apple_foundation";
 
+const requiresOllamaReasoning = (modelId: string): boolean =>
+  /(?:^|\/)gpt-oss(?::|-|$)/i.test(modelId);
+
+export const supportsDisabledReasoning = (
+  providerId: string,
+  modelId: string,
+): boolean => providerId === "ollama" && !requiresOllamaReasoning(modelId);
+
+export const reasoningEffortForTask = (
+  providerId: string,
+  modelId: string,
+  effort: ReasoningEffort,
+  task?: CharTask,
+): ReasoningEffort =>
+  supportsDisabledReasoning(providerId, modelId) &&
+  (task === "enhance" || task === "title")
+    ? "none"
+    : effort;
+
 type ProviderOptions = NonNullable<
   Parameters<typeof defaultSettingsMiddleware>[0]["settings"]["providerOptions"]
 >;
@@ -23,7 +44,7 @@ const GEMINI_THINKING_BUDGET = { low: 1024, medium: 8192, high: 24576 };
 // older generations reject thinkingConfig outright, so unknown ids send nothing.
 const geminiThinkingConfig = (
   modelId: string,
-  effort: Exclude<ReasoningEffort, "default">,
+  effort: Exclude<ReasoningEffort, "default" | "none">,
 ) => {
   const version = /gemini-(\d+)(?:\.(\d+))?/.exec(modelId);
   if (!version) {
@@ -47,6 +68,12 @@ export const reasoningProviderOptions = (
 ): ProviderOptions | null => {
   if (effort === "default" || !supportsReasoningEffort(providerId)) {
     return null;
+  }
+
+  if (effort === "none") {
+    return supportsDisabledReasoning(providerId, modelId)
+      ? { [providerId]: { reasoningEffort: effort } }
+      : null;
   }
 
   switch (providerId) {

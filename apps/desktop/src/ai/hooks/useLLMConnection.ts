@@ -20,6 +20,7 @@ import { providerFetch } from "../provider-fetch";
 import {
   normalizeReasoningEffort,
   type ReasoningEffort,
+  reasoningEffortForTask,
   reasoningProviderOptions,
 } from "../reasoning-effort";
 import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
@@ -276,7 +277,12 @@ const createLanguageModel = (
   const providerOptions = reasoningProviderOptions(
     conn.providerId,
     conn.modelId,
-    conn.reasoningEffort,
+    reasoningEffortForTask(
+      conn.providerId,
+      conn.modelId,
+      conn.reasoningEffort,
+      task,
+    ),
   );
   if (!providerOptions) {
     return model;

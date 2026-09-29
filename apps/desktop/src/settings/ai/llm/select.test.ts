@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { getLlmProviderStatus } from "./select";
+import { getLlmProviderStatus, getVisibleReasoningEffort } from "./select";
 import { PROVIDERS } from "./shared";
 
 function provider(id: string) {
@@ -59,6 +59,13 @@ describe("LLM providers", () => {
       expect(markup).toMatch(/<(img|svg)\b/);
       expect(markup).not.toContain("iconify-icon");
     }
+  });
+});
+
+describe("getVisibleReasoningEffort", () => {
+  test("shows Default for persisted Off when the selected model does not support it", () => {
+    expect(getVisibleReasoningEffort("none", false)).toBe("default");
+    expect(getVisibleReasoningEffort("none", true)).toBe("none");
   });
 });
 

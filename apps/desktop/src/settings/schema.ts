@@ -275,6 +275,11 @@ export const SETTING_DEFINITIONS = {
     path: ["ai", "auto_summary_prompt"],
     default: "" as string,
   },
+  auto_summary_after_recording: {
+    type: "boolean",
+    path: ["ai", "auto_summary_after_recording"],
+    default: true as boolean,
+  },
   summary_length: {
     type: "string",
     path: ["ai", "summary_length"],

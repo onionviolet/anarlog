@@ -191,6 +191,8 @@ export function useCaptureLifecycle(sessionId: string) {
     useConfigValue("audio_retention"),
   );
   const rememberSpeakers = useConfigValue("remember_speakers") === true;
+  const autoSummaryAfterRecording =
+    useConfigValue("auto_summary_after_recording") !== false;
   const {
     conn,
     isReady: connectionReady,
@@ -240,6 +242,9 @@ export function useCaptureLifecycle(sessionId: string) {
       const automatic = recoveredMarker
         ? recoveredMarker.automatic === true
         : startedAutomatically;
+      const shouldGenerateSummary = recoveredMarker
+        ? recoveredMarker.autoSummaryAfterRecording !== false
+        : autoSummaryAfterRecording;
       const initialTitle = recoveredMarker
         ? recoveredMarker.initialTitle
         : session?.title;
@@ -626,6 +631,7 @@ export function useCaptureLifecycle(sessionId: string) {
         memo: memoMd,
         ...(provider ? { provider } : {}),
         ...(model ? { model } : {}),
+        autoSummaryAfterRecording: shouldGenerateSummary,
         ...(pendingSummaryMode ? { summaryMode: pendingSummaryMode } : {}),
         ...(refreshSummaryAfterRepair
           ? { refreshSummaryAfterRepair: true }
@@ -774,6 +780,7 @@ export function useCaptureLifecycle(sessionId: string) {
             });
 
         if (
+          shouldGenerateSummary &&
           postCaptureAction === "batch_then_enhance" &&
           transcriptCreated &&
           !transcriptWriteError &&
@@ -962,6 +969,7 @@ export function useCaptureLifecycle(sessionId: string) {
           transcriptTouched ||
           batchCompleted;
         const shouldEnhance =
+          shouldGenerateSummary &&
           hasTranscriptEvidence &&
           (transcriptIsComplete ||
             (postCaptureAction === "none" &&
@@ -1235,6 +1243,7 @@ export function useCaptureLifecycle(sessionId: string) {
     },
     [
       audioRetention,
+      autoSummaryAfterRecording,
       conn?.model,
       conn?.provider,
       participantHumanIds,

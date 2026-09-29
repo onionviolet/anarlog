@@ -1,4 +1,8 @@
 #[cfg(target_os = "macos")]
+#[path = "../../build-support/swift_link_layout.rs"]
+mod swift_link_layout;
+
+#[cfg(target_os = "macos")]
 use std::{
     collections::BTreeSet,
     env, fs, io,
@@ -588,6 +592,7 @@ fn main() {
         swift_rs::SwiftLinker::new(SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET)
             .with_package("soniqo-swift", "./swift-lib/")
             .link();
+        swift_link_layout::stage_static_library("soniqo-swift");
 
         build_mlx_metallib();
 

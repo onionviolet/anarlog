@@ -8,7 +8,6 @@ import {
   ArrowsInSimple,
   ArrowsOutSimple,
   CaretDown,
-  CircleNotch,
   Square,
   WarningCircle,
 } from "@anlg/ui/components/icons";
@@ -229,19 +228,25 @@ function StopControl({
           <Square size={9} />
           {state.dictation ? "Done" : "Stop"}
         </span>
-      ) : state.status === "reconnecting" ? (
-        <CircleNotch size={20} className="animate-spin" aria-hidden="true" />
-      ) : state.status === "error" ? (
-        <WarningCircle size={20} aria-hidden="true" />
       ) : (
-        <DancingSticks
-          color={colors.accent}
-          amplitude={state.amplitude}
-          width={26}
-          height={20}
-          stickWidth={3}
-          gap={2}
-        />
+        <span className="relative flex items-center">
+          <DancingSticks
+            color={colors.accent}
+            amplitude={state.amplitude}
+            width={26}
+            height={20}
+            stickWidth={3}
+            gap={2}
+          />
+          {state.status === "error" && (
+            <WarningCircle
+              size={12}
+              data-testid="transcription-warning"
+              className="absolute -top-1 -right-1.5"
+              aria-hidden="true"
+            />
+          )}
+        </span>
       )}
     </button>
   );

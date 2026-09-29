@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA Anarlog's critical Pro user journey on a signed staging candidate — onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync.
+description: "QA Anarlog's critical Pro user journey on a signed staging candidate when explicitly asked for QA: onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync."
 ---
 
 # QA: Critical User Experience
@@ -55,7 +55,7 @@ Leave the MacBook open on its built-in speakers and microphone with no external 
    .agents/skills/qa-critical-ux/scripts/reset-native-qa-permissions.sh
    ```
 
-3. Back up any needed staging data, then remove the staging application data:
+3. Use a dedicated staging QA profile. If staging holds user data, verify a recoverable backup and authorization for this exact reset before removing anything; a QA request alone does not authorize losing personal recordings. Then remove only the staging application data:
 
    ```bash
    rm -rf ~/Library/Application\ Support/com.hyprnote.staging

@@ -100,7 +100,7 @@ describe("FloatingBarOverlay", () => {
     expect(screen.getByTestId("waveform")).toBeTruthy();
   });
 
-  it("shows a spinner when live transcription is reconnecting", () => {
+  it("keeps the waveform while live transcription reconnects", () => {
     const { container } = render(
       <FloatingBarOverlay
         state={state({ status: "reconnecting" })}
@@ -114,11 +114,12 @@ describe("FloatingBarOverlay", () => {
         name: "Reconnecting live transcription; stop listening",
       }),
     ).toBeTruthy();
-    expect(screen.queryByTestId("waveform")).toBeNull();
-    expect(container.querySelector(".animate-spin")).toBeTruthy();
+    expect(screen.getByTestId("waveform")).toBeTruthy();
+    expect(screen.queryByTestId("transcription-warning")).toBeNull();
+    expect(container.querySelector(".animate-spin")).toBeNull();
   });
 
-  it("shows a static failure indicator for errors without an active retry", () => {
+  it("keeps the waveform with a warning when transcription fails", () => {
     const { container } = render(
       <FloatingBarOverlay
         state={state({ status: "error" })}
@@ -131,6 +132,8 @@ describe("FloatingBarOverlay", () => {
         name: "Transcription unavailable; stop listening",
       }),
     ).toBeTruthy();
+    expect(screen.getByTestId("waveform")).toBeTruthy();
+    expect(screen.getByTestId("transcription-warning")).toBeTruthy();
     expect(container.querySelector(".animate-spin")).toBeNull();
   });
 

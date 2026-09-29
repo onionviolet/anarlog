@@ -63,6 +63,9 @@ vi.mock("./notification", () => ({ NotificationSettingsView: () => null }));
 vi.mock("./permissions", () => ({ Permissions: () => null }));
 vi.mock("./spoken-languages", () => ({ SpokenLanguagesView: () => null }));
 vi.mock("./storage", () => ({ StorageSettingsView: () => null }));
+vi.mock("./summary-generation", () => ({
+  AutomaticSummarySetting: () => <span>Automatic summary setting</span>,
+}));
 vi.mock("./summary-length", () => ({
   SummaryLengthSelector: () => <span>Summary length selector</span>,
 }));
@@ -151,6 +154,7 @@ describe("SettingsApp", () => {
     expect(screen.getByText("Meetings")).toBeTruthy();
     expect(screen.getByText("Meeting settings")).toBeTruthy();
     expect(screen.getByText("Summaries")).toBeTruthy();
+    expect(screen.getByText("Automatic summary setting")).toBeTruthy();
     expect(screen.getByText("Summary length selector")).toBeTruthy();
     expect(screen.getByText("Audio")).toBeTruthy();
     expect(screen.getByText("Audio settings")).toBeTruthy();

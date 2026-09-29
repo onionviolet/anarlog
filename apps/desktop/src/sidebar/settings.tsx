@@ -122,7 +122,6 @@ export function SettingsNav() {
           id: "dictation",
           label: t`Dictation`,
           icon: Microphone,
-          requiresPro: true,
         },
         { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
         {

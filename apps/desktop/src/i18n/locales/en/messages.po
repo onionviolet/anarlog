@@ -2620,6 +2620,18 @@ msgstr "General"
 msgid "General access"
 msgstr "General access"
 
+#: src/session/components/note-input/header-enhanced.tsx
+msgid "Generate"
+msgstr "Generate"
+
+#: src/settings/general/summary-generation.tsx
+msgid "Generate summaries automatically"
+msgstr "Generate summaries automatically"
+
+#: src/session/components/note-input/header-enhanced.tsx
+msgid "Generate summary"
+msgstr "Generate summary"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
@@ -2799,6 +2811,10 @@ msgstr "Hours transcribed"
 #: src/settings/ai/llm/select.tsx
 msgid "How much the model thinks before answering. Default leaves it to the provider."
 msgstr "How much the model thinks before answering. Default leaves it to the provider."
+
+#: src/settings/ai/llm/select.tsx
+msgid "How much the model thinks before answering. Ollama summaries and titles skip reasoning."
+msgstr "How much the model thinks before answering. Ollama summaries and titles skip reasoning."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "How to get a Kimi Code key"
@@ -3876,6 +3892,10 @@ msgstr "Now"
 msgid "Objects"
 msgstr "Objects"
 
+#: src/settings/ai/llm/select.tsx
+msgid "Off"
+msgstr "Off"
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
 msgstr "Older files that differ from your current data were kept as recovery copies. No action is required."
@@ -4413,6 +4433,7 @@ msgstr "Refresh billing status"
 msgid "Refresh calendars"
 msgstr "Refresh calendars"
 
+#: src/session/components/note-input/header-enhanced.tsx
 #: src/session/components/note-input/template-picker.tsx
 msgid "Regenerate"
 msgstr "Regenerate"
@@ -6318,6 +6339,10 @@ msgstr "What were the key decisions that have been made?"
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
 msgstr "What's new in {version}?"
+
+#: src/settings/general/summary-generation.tsx
+msgid "When off, Anarlog leaves the transcript ready for review. Generate a summary when you choose using the model selected under Intelligence."
+msgstr "When off, Anarlog leaves the transcript ready for review. Generate a summary when you choose using the model selected under Intelligence."
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"

@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA Anarlog's critical Pro user journey when explicitly asked — onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync.
+description: "QA Anarlog's critical Pro user journey on a signed staging candidate when explicitly asked for QA: onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync."
 ---
 
 # QA: Critical User Experience

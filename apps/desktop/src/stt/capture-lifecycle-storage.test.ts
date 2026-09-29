@@ -87,6 +87,20 @@ test("preserves automatic capture provenance and its pre-recording audio state",
   );
 });
 
+test("preserves the automatic summary preference used for the capture", async () => {
+  const onDemandMarker = {
+    ...marker,
+    autoSummaryAfterRecording: false,
+  };
+  mocks.execute.mockResolvedValue([
+    { value_json: JSON.stringify(onDemandMarker) },
+  ]);
+
+  await expect(loadCaptureLifecycleMarker("session-1")).resolves.toEqual(
+    onDemandMarker,
+  );
+});
+
 test("loads the exact durable summary recovery mode", async () => {
   const summaryMarker = {
     ...marker,

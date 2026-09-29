@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA the critical Pro user journey before a desktop release — onboards from scratch, launches without hanging, captures microphone and system audio, produces an automated summary, and restores the note from cloud sync. Use before cutting a stable release or when asked to QA the app.
+description: "QA Anarlog's critical Pro user journey on a signed staging candidate when explicitly asked for QA: onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync."
 ---
 
 # QA: Critical User Experience

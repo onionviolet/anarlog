@@ -28,6 +28,7 @@ const {
   updateSessionMock,
   useTabsMock,
   updateSessionTabStateMock,
+  autoSummaryAfterRecording,
 } = vi.hoisted(() => ({
   audioSourceMetadataMock: vi.fn(),
   audioImportDataMock: vi.fn(),
@@ -49,6 +50,7 @@ const {
   updateSessionMock: vi.fn(),
   useTabsMock: vi.fn(),
   updateSessionTabStateMock: vi.fn(),
+  autoSummaryAfterRecording: { value: true },
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -111,6 +113,10 @@ vi.mock("~/session/queries", () => ({
   useUpdateSession: () => updateSessionMock,
 }));
 
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => autoSummaryAfterRecording.value,
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: useTabsMock,
 }));
@@ -132,6 +138,7 @@ function createWrapper() {
 describe("useUploadFile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    autoSummaryAfterRecording.value = true;
 
     audioImportDataMock.mockResolvedValue({
       status: "ok",
@@ -323,6 +330,28 @@ describe("useUploadFile", () => {
         vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],
       );
     });
+  });
+
+  test("imports audio without scheduling a summary in on-demand mode", async () => {
+    autoSummaryAfterRecording.value = false;
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = new File([new Uint8Array([1, 2, 3])], "drop.wav", {
+      type: "audio/wav",
+    });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+    });
+
+    act(() => {
+      result.current.processAudioFile(file);
+    });
+
+    await waitFor(() => {
+      expect(runBatchMock).toHaveBeenCalled();
+    });
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
   test.each(["webm", "aac"])(

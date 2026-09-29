@@ -1,4 +1,8 @@
 #[cfg(target_os = "macos")]
+#[path = "../../build-support/swift_link_layout.rs"]
+mod swift_link_layout;
+
+#[cfg(target_os = "macos")]
 use std::{
     collections::BTreeSet,
     path::{Path, PathBuf},
@@ -55,6 +59,7 @@ fn main() {
         swift_rs::SwiftLinker::new(SWIFT_MACOS_DEPLOYMENT_TARGET)
             .with_package("apple-speech-swift", "./swift-lib/")
             .link();
+        swift_link_layout::stage_static_library("apple-speech-swift");
 
         for path in swift_runtime_rpaths() {
             println!("cargo:rustc-link-arg=-Wl,-rpath,{path}");

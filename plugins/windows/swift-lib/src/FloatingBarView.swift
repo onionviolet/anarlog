@@ -236,21 +236,19 @@ struct FloatingBarView: View {
               .font(.system(size: 12, weight: .semibold))
           }
           .foregroundStyle(stopColor)
-        } else if model.status == .reconnecting {
-          ProgressView().controlSize(.small)
-            .accessibilityHidden(true)
-        } else if model.status == .error {
-          ErrorMark(color: errorAccentColor)
-            .frame(
-              width: FloatingBarLayout.waveformWidth,
-              height: FloatingBarLayout.waveformHeight
-            )
         } else {
-          DancingBars(color: accentColor, amplitude: model.amplitude)
-            .frame(
-              width: FloatingBarLayout.waveformWidth,
-              height: FloatingBarLayout.waveformHeight
-            )
+          ZStack(alignment: .topTrailing) {
+            DancingBars(color: accentColor, amplitude: model.amplitude)
+            if model.status == .error {
+              ErrorMark(color: errorAccentColor)
+                .scaleEffect(0.7)
+                .offset(x: 5, y: -4)
+            }
+          }
+          .frame(
+            width: FloatingBarLayout.waveformWidth,
+            height: FloatingBarLayout.waveformHeight
+          )
         }
       }
       .frame(width: width, height: height)

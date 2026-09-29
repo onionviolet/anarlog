@@ -2620,6 +2620,18 @@ msgstr ""
 msgid "General access"
 msgstr ""
 
+#: src/session/components/note-input/header-enhanced.tsx
+msgid "Generate"
+msgstr ""
+
+#: src/settings/general/summary-generation.tsx
+msgid "Generate summaries automatically"
+msgstr ""
+
+#: src/session/components/note-input/header-enhanced.tsx
+msgid "Generate summary"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
@@ -2798,6 +2810,10 @@ msgstr ""
 
 #: src/settings/ai/llm/select.tsx
 msgid "How much the model thinks before answering. Default leaves it to the provider."
+msgstr ""
+
+#: src/settings/ai/llm/select.tsx
+msgid "How much the model thinks before answering. Ollama summaries and titles skip reasoning."
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -3876,6 +3892,10 @@ msgstr ""
 msgid "Objects"
 msgstr ""
 
+#: src/settings/ai/llm/select.tsx
+msgid "Off"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
 msgstr ""
@@ -4413,6 +4433,7 @@ msgstr ""
 msgid "Refresh calendars"
 msgstr ""
 
+#: src/session/components/note-input/header-enhanced.tsx
 #: src/session/components/note-input/template-picker.tsx
 msgid "Regenerate"
 msgstr ""
@@ -6317,6 +6338,10 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
+msgstr ""
+
+#: src/settings/general/summary-generation.tsx
+msgid "When off, Anarlog leaves the transcript ready for review. Generate a summary when you choose using the model selected under Intelligence."
 msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx

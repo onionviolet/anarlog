@@ -212,6 +212,50 @@ describe("useSTTConnection", () => {
     expect(result.current.isReady).toBe(false);
   });
 
+  it.each(["signed-out", "free"])(
+    "does not expose hosted transcription when %s",
+    (condition) => {
+      if (condition === "signed-out") authState.session = null;
+      if (condition === "free") billingState.isPaid = false;
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(QueryClientProvider, { client: queryClient }, children);
+
+      const { result } = renderHook(() => useSTTConnection(), { wrapper });
+
+      expect(result.current.conn).toBeNull();
+      expect(result.current.isReady).toBe(false);
+    },
+  );
+
+  it("connects to an on-device model without an account or billing readiness", async () => {
+    authState.session = null;
+    billingState.isPaid = false;
+    billingState.isReady = false;
+    config.current_stt_provider = "soniqo";
+    config.current_stt_model = "soniqo-parakeet-streaming";
+    isModelDownloadedMock.mockResolvedValue({ status: "ok", data: true });
+    getServerForModelMock.mockResolvedValue({
+      status: "ok",
+      data: { status: "ready", url: "http://127.0.0.1:4040/v1" },
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current.conn).toMatchObject({
+      baseUrl: "http://127.0.0.1:4040/v1",
+      apiKey: "",
+    });
+  });
+
   it("starts a selected local model file and exposes its local URL", async () => {
     config.current_stt_provider = "local_file";
     config.current_stt_model = "local-file";

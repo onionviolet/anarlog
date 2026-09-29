@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useMemo } from "react";
 
 import { CaretDown, Sparkle } from "@anlg/ui/components/icons";
@@ -133,6 +134,7 @@ function HeaderViewEnhancedActive({
   onRemove?: () => void;
   onSelectNote?: (enhancedNoteId: string) => void;
 }) {
+  const { t } = useLingui();
   const { isGenerating, isError, onRegenerate } = useEnhanceLogic(
     sessionId,
     enhancedNoteId,
@@ -142,6 +144,7 @@ function HeaderViewEnhancedActive({
   const usedTemplateId = enhancedNote?.templateId?.trim() || null;
   const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
+  const hasSummary = noteMarkdown.trim().length > 0;
 
   const handleCopy = useCallback(() => {
     return copyTextToClipboard(noteMarkdown, {
@@ -198,7 +201,7 @@ function HeaderViewEnhancedActive({
       },
       {
         id: `regenerate-enhanced-${enhancedNoteId}`,
-        text: "Regenerate",
+        text: hasSummary ? t`Regenerate` : t`Generate summary`,
         action: handleRegenerate,
         disabled: isGenerating,
       },
@@ -222,9 +225,11 @@ function HeaderViewEnhancedActive({
     enhancedNoteId,
     handleCopy,
     handleRegenerate,
+    hasSummary,
     isGenerating,
     noteMarkdown.length,
     onRemove,
+    t,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
   const templateMenuTrigger = (
@@ -275,6 +280,7 @@ function HeaderViewEnhancedActive({
       onSelectTemplate={handleSelectTemplate}
       usedTemplateId={usedTemplateId}
       onRegenerateUsed={handleRegenerate}
+      usedTemplateActionLabel={hasSummary ? undefined : t`Generate`}
       isRegenerating={isGenerating}
       trigger={templateMenuTrigger}
     />

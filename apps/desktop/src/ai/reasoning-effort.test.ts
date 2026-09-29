@@ -2,19 +2,59 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizeReasoningEffort,
+  reasoningEffortForTask,
   reasoningProviderOptions,
+  supportsDisabledReasoning,
   supportsReasoningEffort,
 } from "./reasoning-effort";
 
 describe("normalizeReasoningEffort", () => {
   it("keeps known levels", () => {
     expect(normalizeReasoningEffort("high")).toBe("high");
+    expect(normalizeReasoningEffort("none")).toBe("none");
   });
 
   it("falls back to default for unknown or missing values", () => {
     expect(normalizeReasoningEffort(undefined)).toBe("default");
     expect(normalizeReasoningEffort("")).toBe("default");
     expect(normalizeReasoningEffort("xhigh")).toBe("default");
+  });
+});
+
+describe("supportsDisabledReasoning", () => {
+  it("only exposes Off for the verified Ollama path", () => {
+    expect(supportsDisabledReasoning("ollama", "qwen3.5:4b")).toBe(true);
+    expect(supportsDisabledReasoning("ollama", "openai/gpt-oss:20b")).toBe(
+      false,
+    );
+    expect(
+      supportsDisabledReasoning("ollama", "hf.co/openai/gpt-oss-20b"),
+    ).toBe(false);
+    expect(supportsDisabledReasoning("openai", "gpt-5")).toBe(false);
+    expect(supportsDisabledReasoning("lmstudio", "qwen3.5:4b")).toBe(false);
+  });
+});
+
+describe("reasoningEffortForTask", () => {
+  it("turns Ollama reasoning off for output-focused tasks", () => {
+    expect(
+      reasoningEffortForTask("ollama", "qwen3.5:4b", "high", "enhance"),
+    ).toBe("none");
+    expect(
+      reasoningEffortForTask("ollama", "qwen3.5:4b", "default", "title"),
+    ).toBe("none");
+  });
+
+  it("keeps the configured effort for chat and other providers", () => {
+    expect(reasoningEffortForTask("ollama", "qwen3.5:4b", "high", "chat")).toBe(
+      "high",
+    );
+    expect(
+      reasoningEffortForTask("ollama", "gpt-oss:20b", "high", "enhance"),
+    ).toBe("high");
+    expect(reasoningEffortForTask("openai", "gpt-5", "medium", "enhance")).toBe(
+      "medium",
+    );
   });
 });
 
@@ -97,6 +137,9 @@ describe("reasoningProviderOptions", () => {
   });
 
   it("keys OpenAI-compatible providers by their provider id", () => {
+    expect(reasoningProviderOptions("ollama", "qwen3.5:9b", "none")).toEqual({
+      ollama: { reasoningEffort: "none" },
+    });
     expect(reasoningProviderOptions("ollama", "gpt-oss:20b", "low")).toEqual({
       ollama: { reasoningEffort: "low" },
     });
@@ -106,5 +149,15 @@ describe("reasoningProviderOptions", () => {
     expect(reasoningProviderOptions("custom", "my-model", "medium")).toEqual({
       custom: { reasoningEffort: "medium" },
     });
+  });
+
+  it("does not send unverified off values to other providers", () => {
+    expect(reasoningProviderOptions("openai", "gpt-5", "none")).toBeNull();
+    expect(
+      reasoningProviderOptions("google_generative_ai", "gemini-3-pro", "none"),
+    ).toBeNull();
+    expect(
+      reasoningProviderOptions("ollama", "gpt-oss:20b", "none"),
+    ).toBeNull();
   });
 });

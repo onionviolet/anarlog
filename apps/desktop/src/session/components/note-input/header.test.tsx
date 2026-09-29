@@ -835,6 +835,38 @@ describe("Header", () => {
     });
   });
 
+  it("offers explicit generation for an empty summary", () => {
+    hoisted.userTemplates = [
+      {
+        id: "template-1",
+        title: "Customer Call",
+        description: "",
+        pinned: false,
+        sections: [],
+      },
+    ];
+
+    render(
+      <SessionViewSwitcher
+        sessionId="session-1"
+        editorTabs={[{ type: "enhanced", id: "note-1" }, { type: "raw" }]}
+        currentTab={{ type: "enhanced", id: "note-1" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      findContextMenu("regenerate-enhanced-note-1").find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "regenerate-enhanced-note-1",
+      )?.text,
+    ).toBe("Generate summary");
+
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
+
+    expect(screen.getByRole("button", { name: "Generate" })).not.toBeNull();
+  });
+
   it("shows a spinner in the active enhanced tab while generating", () => {
     hoisted.isGenerating = true;
     const editorTabs: EditorView[] = [

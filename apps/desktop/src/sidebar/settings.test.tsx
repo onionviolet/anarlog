@@ -350,6 +350,23 @@ describe("SettingsNav", () => {
     expect(mocks.upgradeToPro).not.toHaveBeenCalled();
   });
 
+  it("opens local dictation without a Pro lock", () => {
+    mocks.isPro = false;
+    render(<SettingsNav />);
+
+    const dictation = screen.getByRole("button", { name: "Dictation" });
+    expect(
+      dictation.querySelector("[aria-label='Requires Anarlog Pro']"),
+    ).toBeNull();
+    fireEvent.click(dictation);
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "dictation" },
+    );
+    expect(mocks.upgradeToPro).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["Teams", { tab: "team" }],
     ["Dictionary", { tab: "dictionary" }],

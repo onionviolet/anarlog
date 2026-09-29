@@ -553,9 +553,11 @@ describe("useStartListening", () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
-        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
-          ? false
-          : [],
+        : key === "auto_summary_after_recording"
+          ? true
+          : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
+            ? false
+            : [],
     );
     leftSidebarExpanded.value = true;
     useSTTConnectionMock.mockReturnValue({
@@ -1190,6 +1192,57 @@ describe("useStartListening", () => {
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     ).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test("keeps the completed transcript on demand without scheduling a summary", async () => {
+    useConfigValueMock.mockImplementation((key) =>
+      key === "ai_language"
+        ? "en"
+        : key === "auto_summary_after_recording"
+          ? false
+          : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
+            ? false
+            : [],
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-1",
+          text: "Review this transcript before summarizing it.",
+          start_ms: 0,
+          end_ms: 1_000,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(requestAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(requestMainAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+    );
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ autoSummaryAfterRecording: false }),
     );
   });
 

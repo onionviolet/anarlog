@@ -13,6 +13,7 @@ import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 import { appendPreferredNamesGuidance } from "./preferred-names";
 
+import { supportsDisabledReasoning } from "~/ai/reasoning-effort";
 import {
   formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
@@ -24,6 +25,7 @@ import { assertCanonicalTemplateSections } from "~/templates/codec";
 
 const AI_GENERATION_MAX_RETRIES = 4;
 const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
+const OLLAMA_SUMMARY_MAX_OUTPUT_TOKENS = 4096;
 const IMAGE_CONTEXT_NOTE =
   "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
 
@@ -37,6 +39,15 @@ export const enhanceWorkflow: Pick<
     smoothStream({ delayInMs: 250, chunking: "line" }),
   ],
 };
+
+const summaryMaxOutputTokens = (model: LanguageModel): number =>
+  // createOpenAICompatible({ name: "ollama" }) identifies its chat model as
+  // "ollama.chat" in the installed AI SDK.
+  typeof model !== "string" &&
+  model.provider === "ollama.chat" &&
+  supportsDisabledReasoning("ollama", model.modelId)
+    ? OLLAMA_SUMMARY_MAX_OUTPUT_TOKENS
+    : SUMMARY_MAX_OUTPUT_TOKENS;
 
 async function* executeWorkflow(params: {
   model: LanguageModel;
@@ -169,7 +180,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         ...createPromptInput(enhancedPrompt, args.imageContext),
         abortSignal: combinedController.signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
-        maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: summaryMaxOutputTokens(model),
       });
       return withCleanup(result.fullStream, () => {
         signal.removeEventListener("abort", abortFromOuter);
