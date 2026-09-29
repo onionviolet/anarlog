@@ -9,7 +9,6 @@ import {
   ArrowsOutSimple,
   CaretDown,
   Square,
-  WarningCircle,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
@@ -104,6 +103,7 @@ export function FloatingBarOverlay({
                 dictation={state.dictation}
                 bubbles={state.transcriptBubbles ?? []}
                 colorScheme={state.colorScheme}
+                notice={state.transcriptNotice ?? null}
               />
             </div>
           )}
@@ -197,15 +197,7 @@ function StopControl({
     <button
       type="button"
       data-tauri-drag-region="false"
-      aria-label={
-        state.dictation
-          ? "Finish dictation"
-          : state.status === "reconnecting"
-            ? "Reconnecting live transcription; stop listening"
-            : state.status === "error"
-              ? "Transcription unavailable; stop listening"
-              : "Stop listening"
-      }
+      aria-label={state.dictation ? "Finish dictation" : "Stop listening"}
       disabled={state.dictation?.phase === "transcribing"}
       onClick={onStop}
       onMouseEnter={() => setHovered(true)}
@@ -229,24 +221,14 @@ function StopControl({
           {state.dictation ? "Done" : "Stop"}
         </span>
       ) : (
-        <span className="relative flex items-center">
-          <DancingSticks
-            color={colors.accent}
-            amplitude={state.amplitude}
-            width={26}
-            height={20}
-            stickWidth={3}
-            gap={2}
-          />
-          {state.status === "error" && (
-            <WarningCircle
-              size={12}
-              data-testid="transcription-warning"
-              className="absolute -top-1 -right-1.5"
-              aria-hidden="true"
-            />
-          )}
-        </span>
+        <DancingSticks
+          color={colors.accent}
+          amplitude={state.amplitude}
+          width={26}
+          height={20}
+          stickWidth={3}
+          gap={2}
+        />
       )}
     </button>
   );
@@ -256,10 +238,12 @@ function TranscriptList({
   bubbles,
   colorScheme,
   dictation,
+  notice,
 }: {
   dictation: FloatingBarState["dictation"];
   bubbles: FloatingTranscriptBubble[];
   colorScheme: FloatingBarState["colorScheme"];
+  notice: string | null;
 }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [pinned, setPinned] = useState(true);
@@ -268,7 +252,7 @@ function TranscriptList({
     if (pinned) {
       bottomRef.current?.scrollIntoView?.({ block: "end" });
     }
-  }, [bubbles, pinned, dictation?.text, dictation?.partial]);
+  }, [bubbles, pinned, notice, dictation?.text, dictation?.partial]);
 
   return (
     <div className="relative h-full p-3">
@@ -306,6 +290,20 @@ function TranscriptList({
               />
             ))
           )}
+          {!dictation && notice ? (
+            <p
+              role="status"
+              className="px-3 py-1.5 text-center text-[12px] leading-4"
+              style={{
+                color:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.5)"
+                    : "rgba(0, 0, 0, 0.45)",
+              }}
+            >
+              {notice}
+            </p>
+          ) : null}
           <div ref={bottomRef} />
         </div>
       </div>
@@ -427,6 +425,6 @@ function barColors(state: FloatingBarState): BarColors {
     handle: dark ? "rgba(255, 255, 255, 0.48)" : "rgba(31, 28, 26, 0.36)",
     outerStroke: dark ? "rgba(255, 255, 255, 0.14)" : "rgba(31, 28, 26, 0.12)",
     controlFill: dark ? "rgba(255, 255, 255, 0.08)" : "rgba(31, 28, 26, 0.07)",
-    accent: state.status === "error" ? "rgb(255, 64, 61)" : "rgb(255, 51, 77)",
+    accent: "rgb(255, 51, 77)",
   };
 }

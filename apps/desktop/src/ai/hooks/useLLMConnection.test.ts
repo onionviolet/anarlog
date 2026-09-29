@@ -144,11 +144,8 @@ it("sends disabled reasoning to Ollama summary requests", async () => {
 });
 
 describe("normalizeLLMProviderId", () => {
-  it("maps the legacy hosted provider id to Anarlog", () => {
+  it("maps the legacy hosted provider id and preserves current ids", () => {
     expect(normalizeLLMProviderId("hyprnote")).toBe("anarlog");
-  });
-
-  it("preserves current provider ids", () => {
     expect(normalizeLLMProviderId("openai")).toBe("openai");
   });
 });

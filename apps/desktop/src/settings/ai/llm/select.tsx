@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   Select,
@@ -203,23 +203,26 @@ export function SelectProviderAndModel() {
     );
   };
 
-  const fetchModels = async (provider: string) => {
-    const status = configuredProviders[provider];
-    const listModels = status?.listModels;
-    if (!listModels) {
-      return [];
-    }
+  const fetchModels = useCallback(
+    async (provider: string) => {
+      const status = configuredProviders[provider];
+      const listModels = status?.listModels;
+      if (!listModels) {
+        return [];
+      }
 
-    const result = await queryClient.fetchQuery({
-      queryKey: ["models", provider, listModels],
-      queryFn: async () => await listModels(),
-      retry: 3,
-      retryDelay: 300,
-      staleTime: 1000 * 2,
-    });
+      const result = await queryClient.fetchQuery({
+        queryKey: ["models", provider, listModels],
+        queryFn: async () => await listModels(),
+        retry: 3,
+        retryDelay: 300,
+        staleTime: 1000 * 2,
+      });
 
-    return result.models;
-  };
+      return result.models;
+    },
+    [configuredProviders, queryClient],
+  );
 
   const needsDefaultSelection = !(
     visibleSelection.provider && visibleSelection.model
@@ -231,6 +234,8 @@ export function SelectProviderAndModel() {
       current_llm_provider ?? "",
       current_llm_model ?? "",
       configuredProviderIds,
+      configuredProviders,
+      fetchModels,
     ],
     queryFn: async () =>
       await getDefaultLlmSelection(

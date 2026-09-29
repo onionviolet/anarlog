@@ -373,17 +373,27 @@ pub async fn window_expand_width(
     let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
 
     if check_monitor_space {
-        let outer_size = window.outer_size().map_err(|e| e.to_string())?;
-        let outer_position = window.outer_position().map_err(|e| e.to_string())?;
-        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        // Monitor queries hit the windowing system; on Linux/X11 they must run on
+        // the GTK main thread. When already on it, run_on_main_thread runs inline.
+        let window_clone = window.clone();
+        let (outer_position, outer_size, monitor_frame) =
+            crate::ext::run_on_main_thread(&app, move || -> tauri::Result<_> {
+                let outer_size = window_clone.outer_size()?;
+                let outer_position = window_clone.outer_position()?;
+                let monitor_frame = window_clone
+                    .current_monitor()?
+                    .map(|monitor| (*monitor.position(), *monitor.size()));
+                Ok((outer_position, outer_size, monitor_frame))
+            })
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
 
-        if let Some(monitor) = monitor {
+        if let Some((monitor_position, monitor_size)) = monitor_frame {
             let available = if expand_left {
-                i64::from(outer_position.x) - i64::from(monitor.position().x)
+                i64::from(outer_position.x) - i64::from(monitor_position.x)
             } else {
                 let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
-                let monitor_right =
-                    i64::from(monitor.position().x) + i64::from(monitor.size().width);
+                let monitor_right = i64::from(monitor_position.x) + i64::from(monitor_size.width);
                 monitor_right - window_right
             };
 
@@ -501,36 +511,8 @@ pub async fn window_restore_width(
     };
 
     #[cfg(target_os = "macos")]
-    {
-        use crate::ext::run_on_main_thread;
-        use objc2_foundation::{NSPoint, NSRect, NSSize};
-
-        let label = window.label().to_string();
-        let app_clone = app.clone();
-
-        run_on_main_thread(&app, move || {
-            let Some(win) = app_clone.get_webview_window(&label) else {
-                return;
-            };
-            let Ok(ns_win_ptr) = win.ns_window() else {
-                return;
-            };
-            let ns_window = unsafe { &*(ns_win_ptr as *mut objc2_app_kit::NSWindow) };
-
-            let frame = ns_window.frame();
-            if (frame.size.width - expanded_w).abs() < 1.0 {
-                let restore_origin_x = frame.origin.x - origin_shift;
-                ns_window.setFrame_display(
-                    NSRect::new(
-                        NSPoint::new(restore_origin_x, frame.origin.y),
-                        NSSize::new(previous_w, frame.size.height),
-                    ),
-                    false,
-                );
-            }
-        })
+    restore_expanded_width(&app, window.label(), (previous_w, expanded_w, origin_shift))
         .map_err(|e| e.to_string())?;
-    }
 
     #[cfg(not(target_os = "macos"))]
     {
@@ -547,6 +529,41 @@ pub async fn window_restore_width(
     }
 
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn restore_expanded_width(
+    app: &tauri::AppHandle<tauri::Wry>,
+    label: &str,
+    (previous_w, expanded_w, origin_shift): (f64, f64, f64),
+) -> Result<(), crate::Error> {
+    use crate::ext::run_on_main_thread;
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+    let label = label.to_string();
+    let app_clone = app.clone();
+
+    run_on_main_thread(app, move || {
+        let Some(win) = app_clone.get_webview_window(&label) else {
+            return;
+        };
+        let Ok(ns_win_ptr) = win.ns_window() else {
+            return;
+        };
+        let ns_window = unsafe { &*(ns_win_ptr as *mut objc2_app_kit::NSWindow) };
+
+        let frame = ns_window.frame();
+        if (frame.size.width - expanded_w).abs() < 1.0 {
+            let restore_origin_x = frame.origin.x - origin_shift;
+            ns_window.setFrame_display(
+                NSRect::new(
+                    NSPoint::new(restore_origin_x, frame.origin.y),
+                    NSSize::new(previous_w, frame.size.height),
+                ),
+                false,
+            );
+        }
+    })
 }
 
 #[tauri::command]
@@ -643,39 +660,35 @@ pub async fn window_is_occluded(
 mod tests {
     use super::*;
 
-    fn screen() -> crate::SavedFrame {
-        crate::SavedFrame {
+    #[test]
+    fn anchored_frames_hug_their_screen_corner() {
+        let screen = crate::SavedFrame {
             x: 100.0,
             y: 50.0,
             w: 1000.0,
             h: 800.0,
-        }
-    }
-
-    #[test]
-    fn top_right_frame_hugs_the_top_right_corner() {
-        let frame = anchored_frame(Anchor::TopRight, screen(), 340.0, 500.0);
-
-        assert_eq!(frame.x, 100.0 + 1000.0 - 340.0 - ANCHOR_MARGIN);
-        assert_eq!((frame.w, frame.h), (340.0, 500.0));
-
-        if cfg!(target_os = "macos") {
-            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+        };
+        let top_y = if cfg!(target_os = "macos") {
+            50.0 + 800.0 - 500.0 - ANCHOR_MARGIN
         } else {
-            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
-        }
-    }
-
-    #[test]
-    fn bottom_left_frame_hugs_the_bottom_left_corner() {
-        let frame = anchored_frame(Anchor::BottomLeft, screen(), 340.0, 500.0);
-
-        assert_eq!(frame.x, 100.0 + ANCHOR_MARGIN);
-
-        if cfg!(target_os = "macos") {
-            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
+            50.0 + ANCHOR_MARGIN
+        };
+        let bottom_y = if cfg!(target_os = "macos") {
+            50.0 + ANCHOR_MARGIN
         } else {
-            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+            50.0 + 800.0 - 500.0 - ANCHOR_MARGIN
+        };
+
+        for (anchor, x, y) in [
+            (
+                Anchor::TopRight,
+                100.0 + 1000.0 - 340.0 - ANCHOR_MARGIN,
+                top_y,
+            ),
+            (Anchor::BottomLeft, 100.0 + ANCHOR_MARGIN, bottom_y),
+        ] {
+            let frame = anchored_frame(anchor, screen, 340.0, 500.0);
+            assert_eq!((frame.x, frame.y, frame.w, frame.h), (x, y, 340.0, 500.0));
         }
     }
 }

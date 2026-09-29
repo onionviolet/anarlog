@@ -79,6 +79,20 @@ pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn delete_transcribed_capture_audio<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || {
+        let dir = session_audio_dir(&app, &session_id)?;
+        recorder::delete_transcribed_capture_audio(&dir).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_microphone_devices<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {
@@ -117,19 +131,6 @@ pub async fn set_mic_muted<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_media_pause_enabled<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    enabled: bool,
-) -> Result<(), String> {
-    use tauri::Manager;
-    app.state::<crate::MediaPauseEnabled>()
-        .0
-        .store(enabled, std::sync::atomic::Ordering::Relaxed);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn start_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: CaptureParams,
@@ -153,6 +154,15 @@ pub async fn stop_capture<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result
     }
     app.listener().stop_capture().await;
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_capture_for_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<bool, String> {
+    Ok(crate::stop_capture_for_session(&app, &session_id).await)
 }
 
 #[tauri::command]

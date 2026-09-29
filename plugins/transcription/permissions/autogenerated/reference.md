@@ -8,9 +8,9 @@ Default permissions for the plugin
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
 - `allow-stop-capture`
+- `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
-- `allow-set-media-pause-enabled`
 - `allow-get-capture-state`
 - `allow-get-capture-snapshot`
 - `allow-recording-safety-status`
@@ -19,12 +19,16 @@ Default permissions for the plugin
 - `allow-get-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-chunk`
+- `allow-delete-transcribed-capture-audio`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
 - `allow-render-transcript-segments`
 - `allow-start-transcription`
 - `allow-stop-transcription`
+- `allow-list-transcription-sessions`
+- `allow-get-completed-transcription`
+- `allow-acknowledge-completed-transcription`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-cleanup-expired-voiceprint-candidates`
@@ -101,6 +105,32 @@ Denies the acknowledge_capture_audio_cleanup_status command without any pre-conf
 <tr>
 <td>
 
+`transcription:allow-acknowledge-completed-transcription`
+
+</td>
+<td>
+
+Enables the acknowledge_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-completed-transcription`
+
+</td>
+<td>
+
+Denies the acknowledge_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-cleanup-expired-voiceprint-candidates`
 
 </td>
@@ -120,6 +150,32 @@ Enables the cleanup_expired_voiceprint_candidates command without any pre-config
 <td>
 
 Denies the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-delete-transcribed-capture-audio`
+
+</td>
+<td>
+
+Enables the delete_transcribed_capture_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-delete-transcribed-capture-audio`
+
+</td>
+<td>
+
+Denies the delete_transcribed_capture_audio command without any pre-configured scope.
 
 </td>
 </tr>
@@ -250,6 +306,32 @@ Enables the get_capture_state command without any pre-configured scope.
 <td>
 
 Denies the get_capture_state command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-completed-transcription`
+
+</td>
+<td>
+
+Enables the get_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-completed-transcription`
+
+</td>
+<td>
+
+Denies the get_completed_transcription command without any pre-configured scope.
 
 </td>
 </tr>
@@ -465,6 +547,32 @@ Denies the list_microphone_devices command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-list-transcription-sessions`
+
+</td>
+<td>
+
+Enables the list_transcription_sessions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-transcription-sessions`
+
+</td>
+<td>
+
+Denies the list_transcription_sessions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-parse-subtitle`
 
 </td>
@@ -569,32 +677,6 @@ Denies the render_transcript_segments command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-set-media-pause-enabled`
-
-</td>
-<td>
-
-Enables the set_media_pause_enabled command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-set-media-pause-enabled`
-
-</td>
-<td>
-
-Denies the set_media_pause_enabled command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `transcription:allow-set-mic-muted`
 
 </td>
@@ -692,6 +774,32 @@ Enables the stop_capture command without any pre-configured scope.
 <td>
 
 Denies the stop_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-stop-capture-for-session`
+
+</td>
+<td>
+
+Enables the stop_capture_for_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-stop-capture-for-session`
+
+</td>
+<td>
+
+Denies the stop_capture_for_session command without any pre-configured scope.
 
 </td>
 </tr>

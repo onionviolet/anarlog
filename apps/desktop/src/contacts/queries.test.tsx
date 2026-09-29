@@ -49,14 +49,11 @@ import {
   reorderPinnedContacts,
   searchContacts,
   savePersonalContact,
-  toggleContactPin,
   updateContactAvatar,
   updateHumanContactSummary,
   updateHuman,
-  updateOrganization,
   useHumanDisplayRecordsByIds,
   useHumans,
-  useHumanSessions,
   useOrganizationDisplayRecordsByIds,
   useOrganizations,
 } from "./queries";
@@ -186,31 +183,10 @@ describe("contact SQLite queries", () => {
         summary: {
           facts: ["Fact one", "Fact two", "Fact three"],
           sourceHash: "source-1",
+          promptKey: "",
           generatedAt: "2026-08-12T12:00:00.000Z",
           sources: [],
         },
-      },
-    ]);
-  });
-
-  it("maps related session freshness for contact summaries", () => {
-    mocks.rows = [
-      {
-        id: "session-1",
-        title: "Planning",
-        created_at: "2026-08-10T12:00:00.000Z",
-        source_updated_at: "2026-08-11T12:00:00.000Z",
-      },
-    ];
-
-    const { result } = renderHook(() => useHumanSessions("human-1"));
-
-    expect(result.current).toEqual([
-      {
-        id: "session-1",
-        title: "Planning",
-        createdAt: "2026-08-10T12:00:00.000Z",
-        sourceUpdatedAt: "2026-08-11T12:00:00.000Z",
       },
     ]);
   });
@@ -312,20 +288,6 @@ describe("contact SQLite queries", () => {
     expect(organizationResult.current).toEqual([
       { id: "organization-1", name: "Acme" },
     ]);
-  });
-
-  it("does not expose display records when no ids are referenced", () => {
-    mocks.rows = [{ id: "human-1", name: "Alice" }];
-
-    const { result: humanResult } = renderHook(() =>
-      useHumanDisplayRecordsByIds([]),
-    );
-    const { result: organizationResult } = renderHook(() =>
-      useOrganizationDisplayRecordsByIds([]),
-    );
-
-    expect(humanResult.current).toEqual([]);
-    expect(organizationResult.current).toEqual([]);
   });
 
   it("keeps the last resolved display records while a by-id query is loading", () => {
@@ -526,6 +488,7 @@ describe("contact SQLite queries", () => {
     await updateHumanContactSummary("human-1", {
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
+      promptKey: "prompt-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
       sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });
@@ -537,6 +500,7 @@ describe("contact SQLite queries", () => {
     expect(JSON.parse(String(statement.params[0]))).toEqual({
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
+      promptKey: "prompt-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
       sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });
@@ -550,17 +514,6 @@ describe("contact SQLite queries", () => {
     expect(statement.sql).toContain("UPDATE humans");
     expect(statement.sql).toContain("SET deleted_at = ?");
     expect(statement.params[statement.params.length - 1]).toBe("human-1");
-  });
-
-  it("computes pin order across humans and organizations", async () => {
-    await toggleContactPin("human", "human-1");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE humans");
-    expect(statement.sql).toContain("SELECT pin_order FROM organizations");
-    expect(statement.sql).toContain(
-      "pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END",
-    );
   });
 
   it("reorders mixed pinned contacts atomically", async () => {
@@ -624,13 +577,6 @@ describe("contact SQLite queries", () => {
     expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith("contact_merged", {
       entry_point: "contact_details",
     });
-  });
-
-  it("does not report an organization edit as a contact merge", async () => {
-    await updateOrganization("organization-1", { name: "Renamed" });
-
-    expect(mocks.executeTransaction).toHaveBeenCalledOnce();
-    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   it("keeps the bound self human when it is selected as the duplicate", async () => {

@@ -11,6 +11,7 @@ const {
   listenCaptureLifecycleMock,
   listenCaptureStatusMock,
   listMicUsingApplicationsMock,
+  prepareSessionPeaksMock,
   runEventHooksMock,
   setRecordingIndicatorMock,
   startCaptureMock,
@@ -25,12 +26,17 @@ const {
   listenCaptureLifecycleMock: vi.fn(),
   listenCaptureStatusMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
+  prepareSessionPeaksMock: vi.fn(),
   runEventHooksMock: vi.fn(),
   setRecordingIndicatorMock: vi.fn(),
   startCaptureMock: vi.fn(),
   stopCaptureMock: vi.fn(),
   stopTranscriptionMock: vi.fn(),
   vaultBaseMock: vi.fn(),
+}));
+
+vi.mock("~/audio-player/waveform", () => ({
+  prepareSessionPeaks: prepareSessionPeaksMock,
 }));
 
 vi.mock("~/stt/speaker-context-capture", () => ({
@@ -212,6 +218,7 @@ describe("General Listener Slice", () => {
         },
       });
       expect(onStopped).toHaveBeenCalledOnce();
+      expect(prepareSessionPeaksMock).toHaveBeenCalledWith("previous");
       expect(store.getState().live.postStopProcessingBySession.previous).toBe(
         true,
       );
@@ -281,13 +288,6 @@ describe("General Listener Slice", () => {
       expect(state.live.needsBatchRepair).toBe(false);
       expect(state.live.postStopProcessingBySession).toEqual({});
       expect(state.batch).toEqual({});
-    });
-  });
-
-  describe("Amplitude Updates", () => {
-    test("amplitude state is initialized to zero", () => {
-      const state = store.getState();
-      expect(state.live.amplitude).toEqual({ mic: 0, speaker: 0 });
     });
   });
 
@@ -906,11 +906,6 @@ describe("General Listener Slice", () => {
   });
 
   describe("Stop Action", () => {
-    test("stop action exists and is callable", () => {
-      const stop = store.getState().stop;
-      expect(typeof stop).toBe("function");
-    });
-
     test("marks batch transcription stopped as soon as native cancellation succeeds", async () => {
       store.getState().handleBatchStarted("session-1");
 
@@ -1004,14 +999,39 @@ describe("General Listener Slice", () => {
         ),
       );
     });
+    test("attachLiveSession restores timer, mute and degraded state from the native snapshot", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:20:00Z"));
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+          startedAtMs: new Date("2026-01-01T00:00:00Z").getTime(),
+          micMuted: true,
+          degraded: { type: "connection_timeout" },
+        },
+      });
+
+      try {
+        await store.getState().attachLiveSession("session-a");
+
+        const live = store.getState().live;
+        expect(live.status).toBe("active");
+        expect(live.seconds).toBe(20 * 60);
+        expect(live.muted).toBe(true);
+        expect(live.degraded).toEqual({ type: "connection_timeout" });
+      } finally {
+        clearInterval(store.getState().live.intervalId);
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("Start Action", () => {
-    test("start action exists and is callable", () => {
-      const start = store.getState().start;
-      expect(typeof start).toBe("function");
-    });
-
     test("attachLiveSession hydrates the active native capture for the same session", async () => {
       getCaptureSnapshotMock.mockResolvedValueOnce({
         status: "ok",

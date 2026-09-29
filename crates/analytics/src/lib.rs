@@ -464,16 +464,4 @@ mod tests {
             )])
         );
     }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_analytics() {
-        let client = AnalyticsClientBuilder::default().build();
-        let payload = AnalyticsPayload::builder("test_event")
-            .with("key1", "value1")
-            .with("key2", 2)
-            .build();
-
-        client.event("machine_id_123", payload).await.unwrap();
-    }
 }

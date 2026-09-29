@@ -13,6 +13,7 @@ pub(crate) struct CloudsyncInterruptHandle {
 struct CloudsyncInterruptState {
     connection: AtomicPtr<libsqlite3_sys::sqlite3>,
     generation: u64,
+    interruptible: bool,
 }
 
 pub(crate) struct CloudsyncInterruptRegistration<'a> {
@@ -25,6 +26,21 @@ impl CloudsyncInterruptHandle {
         &'a self,
         connection: &mut SqliteConnection,
     ) -> Result<CloudsyncInterruptRegistration<'a>, sqlx::Error> {
+        self.register_operation(connection, true).await
+    }
+
+    pub(crate) async fn register_cleanup<'a>(
+        &'a self,
+        connection: &mut SqliteConnection,
+    ) -> Result<CloudsyncInterruptRegistration<'a>, sqlx::Error> {
+        self.register_operation(connection, false).await
+    }
+
+    async fn register_operation<'a>(
+        &'a self,
+        connection: &mut SqliteConnection,
+        interruptible: bool,
+    ) -> Result<CloudsyncInterruptRegistration<'a>, sqlx::Error> {
         let mut handle = connection.lock_handle().await?;
         let connection = handle.as_raw_handle().as_ptr();
         let mut state = self.state.lock().unwrap();
@@ -34,6 +50,7 @@ impl CloudsyncInterruptHandle {
             ));
         }
         state.generation = state.generation.wrapping_add(1);
+        state.interruptible = interruptible;
         state.connection.store(connection, Ordering::Release);
         Ok(CloudsyncInterruptRegistration {
             handle: self,
@@ -46,6 +63,13 @@ impl CloudsyncInterruptHandle {
         let connection = state.connection.load(Ordering::Acquire);
         if connection.is_null() {
             return false;
+        }
+
+        // Cleanup changes the extension's in-memory table state as well as SQL.
+        // Interrupting it can invalidate statements and bypass savepoint rollback.
+        // Keep it registered so callers wait for completion before local writes.
+        if !state.interruptible {
+            return true;
         }
 
         // SAFETY: callers retain the pinned SQLx connection until registration

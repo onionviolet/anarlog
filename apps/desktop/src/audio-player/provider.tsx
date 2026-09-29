@@ -15,6 +15,7 @@ import WaveSurfer from "wavesurfer.js";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { configureCenteredPlayback } from "./playback";
+import { loadWaveform } from "./waveform";
 
 import { useFeatureAccess } from "~/auth/local-entitlements";
 import {
@@ -163,10 +164,13 @@ export function AudioPlayerProvider({
 
     let lastReportedTime = 0;
 
+    const media = new Audio();
+    media.crossOrigin = "anonymous";
+    media.preload = "metadata";
+
     const ws = WaveSurfer.create({
       container,
-      url,
-      backend: "WebAudio",
+      media,
       height: 24,
       waveColor: "#e5e5e5",
       progressColor: "#a8a8a8",
@@ -183,7 +187,7 @@ export function AudioPlayerProvider({
         { waveColor: "#d5dde8", progressColor: "#a3b3c9", overlay: true },
       ],
     });
-    const audioContext = configureCenteredPlayback(ws.getMediaElement());
+    const audioContext = configureCenteredPlayback(media);
     audioContextRef.current = audioContext;
 
     const syncCurrentTime = (currentTime: number, force = false) => {
@@ -259,16 +263,31 @@ export function AudioPlayerProvider({
 
     setWavesurfer(ws);
 
+    const loadController = new AbortController();
+    void loadWaveform(ws, {
+      url,
+      sessionId,
+      signal: loadController.signal,
+    }).catch(() => {});
+
     return () => {
+      loadController.abort();
       stopRequestedRef.current = false;
       if (audioContextRef.current === audioContext) {
         audioContextRef.current = null;
       }
+      const mediaSrc = media.currentSrc || media.src;
+      media.pause();
       ws.destroy();
+      if (mediaSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(mediaSrc);
+      }
+      media.removeAttribute("src");
+      media.load();
       setWavesurfer(null);
       void audioContext?.close();
     };
-  }, [container, url]);
+  }, [container, sessionId, url]);
 
   const play = useCallback(() => {
     if (!wavesurfer) {

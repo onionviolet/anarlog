@@ -10,7 +10,7 @@ pub(crate) async fn interruptible_cleanup(
     sqlx::query("SAVEPOINT cloudsync_cleanup")
         .execute(&mut *connection)
         .await?;
-    let registration = match interrupt.register(connection).await {
+    let registration = match interrupt.register_cleanup(connection).await {
         Ok(registration) => registration,
         Err(error) => {
             rollback_cleanup_savepoint(connection).await?;
@@ -18,12 +18,7 @@ pub(crate) async fn interruptible_cleanup(
         }
     };
     let result = anlg_cloudsync::cleanup(&mut *connection, table_name).await;
-    if let Err(error) = registration.finish(connection).await {
-        rollback_cleanup_savepoint(connection).await?;
-        return Err(error.into());
-    }
-
-    match result {
+    let result = match result {
         Ok(()) => match sqlx::query("RELEASE cloudsync_cleanup")
             .execute(&mut *connection)
             .await
@@ -38,7 +33,9 @@ pub(crate) async fn interruptible_cleanup(
             rollback_cleanup_savepoint(connection).await?;
             Err(error)
         }
-    }
+    };
+    registration.finish(connection).await?;
+    result
 }
 
 async fn rollback_cleanup_savepoint(

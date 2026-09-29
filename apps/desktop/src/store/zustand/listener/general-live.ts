@@ -45,6 +45,7 @@ import {
   type TranscriptState,
 } from "./transcript";
 
+import { prepareSessionPeaks } from "~/audio-player/waveform";
 import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { getSessionResourcePath } from "~/session/resource-path";
@@ -337,6 +338,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
     if (currentLive.sessionId === targetSessionId) {
       void iconCommands.setRecordingIndicator(false);
       get().resetTranscript();
+    }
+
+    if (payload.audio_path) {
+      void prepareSessionPeaks(targetSessionId);
     }
 
     const dispatchMeetingCompleted = () => {
@@ -845,8 +850,14 @@ function applyCaptureSnapshot<T extends LiveStore>(
         intervalId,
         snapshot.requestedLiveTranscription ?? true,
         snapshot.liveTranscriptionActive ?? true,
-        null,
+        snapshot.degraded ?? null,
       );
+      if (snapshot.startedAtMs != null) {
+        live.seconds = elapsedSecondsSince(snapshot.startedAtMs);
+      }
+      if (snapshot.micMuted != null) {
+        live.muted = snapshot.micMuted;
+      }
     });
     return;
   }
@@ -951,3 +962,6 @@ export const stopLiveSession = <T extends GeneralState>(
     });
   });
 };
+
+const elapsedSecondsSince = (startedAtMs: number) =>
+  Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));

@@ -34,6 +34,22 @@ use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
 
 const PLUGIN_NAME: &str = "transcription";
 
+pub async fn stop_capture_for_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) -> bool {
+    let stopped = app
+        .listener()
+        .stop_capture_for_session(session_id.to_string())
+        .await;
+    if stopped {
+        app.listener2()
+            .stop_transcription(format!("{session_id}:recovery"))
+            .await;
+    }
+    stopped
+}
+
 pub type SharedState = Arc<Mutex<PluginState>>;
 
 pub struct PluginState {
@@ -48,6 +64,8 @@ pub struct SessionStateSnapshot {
     /// `Some(true)` only if every capture stream of this recording ran with the mic isolated
     /// (headphone output). One shared-speaker stretch pins it to `Some(false)`.
     pub mic_isolated: Option<bool>,
+    pub started_at_ms: Option<i64>,
+    pub degraded: Option<DegradedError>,
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
@@ -58,24 +76,6 @@ pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 
 #[derive(Clone, Default)]
 pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, String>>>);
-
-/// Whether starting a capture should pause other media playback.
-/// Toggled from the frontend via `set_media_pause_enabled`; defaults to on
-/// until the settings side-effect syncs the stored value.
-#[derive(Clone)]
-pub struct MediaPauseEnabled(pub Arc<std::sync::atomic::AtomicBool>);
-
-impl Default for MediaPauseEnabled {
-    fn default() -> Self {
-        Self(Arc::new(std::sync::atomic::AtomicBool::new(true)))
-    }
-}
-
-impl MediaPauseEnabled {
-    pub fn enabled(&self) -> bool {
-        self.0.load(std::sync::atomic::Ordering::Relaxed)
-    }
-}
 
 impl AudioCleanupStatus {
     fn acknowledge(&self, session_id: &str, error: &str) -> std::result::Result<(), String> {
@@ -88,14 +88,29 @@ impl AudioCleanupStatus {
     }
 }
 
+#[derive(Default)]
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
+    pub completed: StdMutex<HashMap<String, CompletedBatchEntry>>,
+    pub completed_dir: Option<std::path::PathBuf>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct CompletedBatchEntry {
+    pub session: TranscriptionSession,
+    pub response: owhisper_interface::batch::Response,
+    pub completed_at_ms: i64,
 }
 
 pub struct BatchSessionEntry {
     pub control: Arc<BatchSessionControl>,
     pub abort_handle: Option<AbortHandle>,
     pub wait_for_native_completion: bool,
+    pub file_path: String,
+    pub provider: Option<crate::TranscriptionProvider>,
+    pub model: Option<String>,
+    pub started_at_ms: i64,
+    pub resume_context: Option<String>,
 }
 
 pub struct BatchSessionControl {
@@ -120,9 +135,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_current_microphone_device::<tauri::Wry>,
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
-            listener::commands::set_media_pause_enabled::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
+            listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
             listener::commands::get_capture_state::<tauri::Wry>,
             listener::commands::get_capture_snapshot::<tauri::Wry>,
@@ -132,12 +147,16 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_chunk::<tauri::Wry>,
+            listener::commands::delete_transcribed_capture_audio::<tauri::Wry>,
             listener::commands::is_supported_languages_live::<tauri::Wry>,
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,
             listener::commands::render_transcript_segments,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
+            listener2::commands::list_transcription_sessions::<tauri::Wry>,
+            listener2::commands::get_completed_transcription::<tauri::Wry>,
+            listener2::commands::acknowledge_completed_transcription::<tauri::Wry>,
             listener2::commands::parse_subtitle::<tauri::Wry>,
             listener2::commands::export_to_vtt::<tauri::Wry>,
             listener2::commands::is_supported_languages_batch::<tauri::Wry>,
@@ -169,9 +188,16 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app: app_handle.clone(),
             }));
             app.manage(state);
-            app.manage(Arc::new(BatchSessionRegistry {
-                sessions: StdMutex::new(HashMap::new()),
-            }));
+            let batch_registry = Arc::new(BatchSessionRegistry {
+                completed_dir: app
+                    .path()
+                    .app_data_dir()
+                    .ok()
+                    .map(|dir| dir.join("batch-results")),
+                ..Default::default()
+            });
+            listener2::load_completed_batches(&batch_registry);
+            app.manage(batch_registry);
 
             let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));
@@ -180,15 +206,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(mic_isolation_cache.clone());
             let audio_cleanup_status = AudioCleanupStatus::default();
             app.manage(audio_cleanup_status.clone());
-            let media_pause_enabled = MediaPauseEnabled::default();
-            app.manage(media_pause_enabled.clone());
             let runtime = Arc::new(listener::TauriRuntime {
                 audio_cleanup_status,
                 app: app_handle.clone(),
                 session_state_cache,
                 mic_isolation_cache,
                 sleep_prevention: Arc::new(sleep_prevention::RecordingSleepPrevention::new()),
-                media_pause_enabled,
             });
 
             tauri::async_runtime::spawn(async move {

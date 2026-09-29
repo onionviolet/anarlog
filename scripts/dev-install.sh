@@ -5,6 +5,7 @@
 #   ./scripts/dev-install.sh --debug      much faster build, slower app
 #   ./scripts/dev-install.sh --sync       fast-forward main from upstream first
 #   ./scripts/dev-install.sh --no-launch  install without relaunching
+#   ./scripts/dev-install.sh --build-only build and verify without replacing the app
 #
 # Why this exists: a locally built macOS app is ad-hoc signed, so its code
 # signing identity changes on every build and macOS drops the microphone and
@@ -23,12 +24,15 @@ PROFILE="release"
 TAURI_ARGS=()
 SYNC=0
 LAUNCH=1
+BUILD_ONLY=0
+CARGO_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --debug)     PROFILE="debug"; TAURI_ARGS+=("--debug") ;;
     --sync)      SYNC=1 ;;
     --no-launch) LAUNCH=0 ;;
+    --build-only) BUILD_ONLY=1 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -36,7 +40,6 @@ done
 # cmake 4 refuses projects declaring a minimum below 3.5, and the pyannote
 # diarization dependency declares 3.3.
 export CMAKE_POLICY_VERSION_MINIMUM=3.5
-export PATH="/opt/homebrew/bin:$PATH"
 
 cd "$REPO_ROOT"
 
@@ -46,20 +49,40 @@ if [ "$SYNC" -eq 1 ]; then
   git merge --ff-only upstream/main
 fi
 
-echo "==> building (${PROFILE})"
-# macOS ships bash 3.2, where "${ARR[@]}" on an empty array is an unbound
-# variable under set -u. The ${ARR[@]+...} guard expands to nothing instead.
-( cd apps/desktop && pnpm tauri build ${TAURI_ARGS[@]+"${TAURI_ARGS[@]}"} ) || {
-  # The updater signature step fails without TAURI_SIGNING_PRIVATE_KEY and is
-  # the last thing tauri does, so a bundle on disk means the build itself was
-  # fine. Anything else is a real failure.
-  [ -d "${REPO_ROOT}/apps/desktop/src-tauri/target/${PROFILE}/bundle/macos/${APP_NAME}.app" ] \
-    || { echo "build failed" >&2; exit 1; }
-  echo "==> ignoring updater-signing failure; the bundle was produced"
-}
+node scripts/release-version.mjs --check
+TARGET_DIR="$(cargo metadata --locked --no-deps --format-version 1 | node -e 'let input="";process.stdin.on("data",d=>input+=d);process.stdin.on("end",()=>console.log(JSON.parse(input).target_directory))')"
+TARGET_TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+CONFIG_DIR="$(mktemp -d -t anarlog-local-build)"
+CONFIG="$CONFIG_DIR/config.json"
+trap 'rm -f "$CONFIG"; rmdir "$CONFIG_DIR"' EXIT
+node - "$CONFIG" <<'JS'
+const fs = require("node:fs");
+const { version } = JSON.parse(fs.readFileSync("release-version.json", "utf8"));
+fs.writeFileSync(process.argv[2], JSON.stringify({
+  version,
+  bundle: {
+    createUpdaterArtifacts: false,
+    externalBin: ["binaries/char-chrome-native-host", "binaries/check-permissions", "resources/cli/anarlog-cli"],
+  },
+}));
+JS
+export APP_VERSION="$(node -p 'require("./release-version.json").version')"
+export VITE_APP_VERSION="$APP_VERSION"
+export VITE_APP_URL="${VITE_APP_URL:-https://anarlog.so}"
+export VITE_API_URL="${VITE_API_URL:-https://api.anarlog.so}"
+if [ "$PROFILE" = release ]; then CARGO_ARGS+=("--release"); fi
+cargo build --locked ${CARGO_ARGS[@]+"${CARGO_ARGS[@]}"} -p anarlog-cli -p chrome-native-host
+mkdir -p apps/desktop/src-tauri/binaries apps/desktop/src-tauri/resources/cli
+cp "$TARGET_DIR/$PROFILE/char-chrome-native-host" "apps/desktop/src-tauri/binaries/char-chrome-native-host-$TARGET_TRIPLE"
+cp "$TARGET_DIR/$PROFILE/anarlog" "apps/desktop/src-tauri/resources/cli/anarlog-cli-$TARGET_TRIPLE"
 
-BUILT="${REPO_ROOT}/apps/desktop/src-tauri/target/${PROFILE}/bundle/macos/${APP_NAME}.app"
+echo "==> building (${PROFILE})"
+( cd apps/desktop && pnpm tauri build --bundles app --config "$CONFIG" ${TAURI_ARGS[@]+"${TAURI_ARGS[@]}"} )
+BUILT="$TARGET_DIR/$PROFILE/bundle/macos/${APP_NAME}.app"
 [ -d "$BUILT" ] || { echo "no bundle at ${BUILT}" >&2; exit 1; }
+EXPECTED_VERSION="$(node -p 'require("./release-version.json").version')"
+ACTUAL_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BUILT/Contents/Info.plist")"
+[ "$ACTUAL_VERSION" = "$EXPECTED_VERSION" ] || { echo "bundle version mismatch: $ACTUAL_VERSION != $EXPECTED_VERSION" >&2; exit 1; }
 
 if security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
   echo "==> signing as '${SIGN_IDENTITY}' so permissions survive the rebuild"
@@ -74,12 +97,32 @@ else
   echo "    rebuilds', to create the certificate once."
 fi
 
+codesign --verify --deep --strict "$BUILT"
+if [ "$BUILD_ONLY" -eq 1 ]; then
+  echo "==> verified ${EXPECTED_VERSION}: $BUILT"
+  exit 0
+fi
+
 echo "==> installing to ${DEST}"
 osascript -e "tell application \"${APP_NAME}\" to quit" >/dev/null 2>&1 || true
 sleep 2
-rm -rf "$DEST"
-ditto "$BUILT" "$DEST"
+STAGED="${DEST}.next.$$"
+PREVIOUS="${DEST}.previous.$$"
+ditto "$BUILT" "$STAGED"
+codesign --verify --deep --strict "$STAGED"
+if [ -d "$DEST" ]; then mv "$DEST" "$PREVIOUS"; fi
+if ! mv "$STAGED" "$DEST"; then
+  [ ! -d "$PREVIOUS" ] || mv "$PREVIOUS" "$DEST"
+  exit 1
+fi
+[ ! -d "$PREVIOUS" ] || echo "==> previous app retained at $PREVIOUS"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+CLI_DIR="$HOME/.local/bin/.anarlog-cli/anarlog"
+mkdir -p "$CLI_DIR"
+cp "$DEST/Contents/MacOS/anarlog-cli" "$CLI_DIR/$EXPECTED_VERSION.next.$$"
+mv "$CLI_DIR/$EXPECTED_VERSION.next.$$" "$CLI_DIR/$EXPECTED_VERSION"
+ln -s "$CLI_DIR/$EXPECTED_VERSION" "$HOME/.local/bin/anarlog.next.$$"
+mv -f "$HOME/.local/bin/anarlog.next.$$" "$HOME/.local/bin/anarlog"
 
 if [ "$LAUNCH" -eq 1 ]; then
   echo "==> launching"

@@ -19,6 +19,8 @@ export function createCaptureAudioRecovery(options: {
     intervals: RecoveryInterval[],
     signal: AbortSignal,
   ) => Promise<void>;
+  // Chunks from earlier captures are repaired whole into their own transcript.
+  inherited?: (chunk: RecoveryAudioChunk) => boolean;
   now?: () => number;
 }) {
   const now = options.now ?? Date.now;
@@ -36,6 +38,7 @@ export function createCaptureAudioRecovery(options: {
   let retryAt = 0;
   let recoverThrough = 0;
   let revision = 0;
+  let batchFromRetainedAudio = false;
 
   const elapsed = () => Math.max(0, now() - options.startedAt);
   const markGap = () => {
@@ -58,8 +61,20 @@ export function createCaptureAudioRecovery(options: {
     pending = gapStart !== undefined || gaps.length > 0;
     for (const chunk of chunks) {
       controller.signal.throwIfAborted();
+      if (options.inherited?.(chunk)) {
+        pending = true;
+        if (!online || now() < retryAt) return false;
+        await options.repair(chunk, [], controller.signal);
+        controller.signal.throwIfAborted();
+        await options.acknowledge(chunk);
+        continue;
+      }
       const range = chunkInterval(chunk, options.startedAt);
       if (!settle && range.end > elapsed() - 10_000) continue;
+      if (batchFromRetainedAudio) {
+        await options.acknowledge(chunk);
+        continue;
+      }
       await options.flush();
       controller.signal.throwIfAborted();
       const repairRevision = revision;
@@ -135,9 +150,10 @@ export function createCaptureAudioRecovery(options: {
       online = false;
       markGap();
     },
-    batchOnly() {
+    batchOnly(retainAudio: boolean) {
       online = true;
-      markGap();
+      batchFromRetainedAudio = retainAudio;
+      if (!retainAudio) markGap();
     },
     recoverPending() {
       recoverThrough = elapsed();
@@ -157,17 +173,9 @@ export function createCaptureAudioRecovery(options: {
       failed = true;
       markGap();
     },
-    async stop(retainAudio: boolean) {
+    async stop() {
       active = false;
       clearTimeout(timer);
-      if (!retainAudio) {
-        controller.abort();
-        await running;
-        return {
-          incomplete:
-            pending || failed || gapStart !== undefined || gaps.length > 0,
-        };
-      }
       closeGap();
       await running;
       while (await tick(true)) {

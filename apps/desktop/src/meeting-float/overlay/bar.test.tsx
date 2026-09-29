@@ -111,7 +111,7 @@ describe("FloatingBarOverlay", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Reconnecting live transcription; stop listening",
+        name: "Stop listening",
       }),
     ).toBeTruthy();
     expect(screen.getByTestId("waveform")).toBeTruthy();
@@ -119,7 +119,7 @@ describe("FloatingBarOverlay", () => {
     expect(container.querySelector(".animate-spin")).toBeNull();
   });
 
-  it("keeps the waveform with a warning when transcription fails", () => {
+  it("keeps the waveform when transcription fails", () => {
     const { container } = render(
       <FloatingBarOverlay
         state={state({ status: "error" })}
@@ -129,11 +129,11 @@ describe("FloatingBarOverlay", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: "Transcription unavailable; stop listening",
+        name: "Stop listening",
       }),
     ).toBeTruthy();
     expect(screen.getByTestId("waveform")).toBeTruthy();
-    expect(screen.getByTestId("transcription-warning")).toBeTruthy();
+    expect(screen.queryByTestId("transcription-warning")).toBeNull();
     expect(container.querySelector(".animate-spin")).toBeNull();
   });
 

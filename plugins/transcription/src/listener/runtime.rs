@@ -18,7 +18,6 @@ pub struct TauriRuntime {
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
     pub sleep_prevention: std::sync::Arc<RecordingSleepPrevention>,
-    pub media_pause_enabled: crate::MediaPauseEnabled,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -52,13 +51,6 @@ impl ListenerRuntime for TauriRuntime {
                 let _ = self.app.tray().set_start_disabled(true);
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
-                if self.media_pause_enabled.enabled() {
-                    tauri::async_runtime::spawn(async {
-                        if let Err(error) = anlg_media_control::pause_playback().await {
-                            tracing::warn!(%error, "media_pause_failed");
-                        }
-                    });
-                }
             }
             anlg_transcription_core::listener::SessionLifecycleEvent::Inactive {
                 session_id,
@@ -99,6 +91,8 @@ impl ListenerRuntime for TauriRuntime {
                     let state = cache.entry(session_id.clone()).or_default();
                     state.requested_live_transcription = requested_live_transcription;
                     state.live_transcription_active = live_transcription_active;
+                    state.started_at_ms.get_or_insert_with(unix_now_ms);
+                    state.degraded = error.clone();
                 }
                 CaptureLifecycleEvent::Started {
                     session_id,
@@ -231,6 +225,13 @@ fn apply_segment_delta(
     if segments.len() > LIVE_SEGMENT_SNAPSHOT_LIMIT {
         segments.drain(0..segments.len() - LIVE_SEGMENT_SNAPSHOT_LIMIT);
     }
+}
+
+fn unix_now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or_default()
 }
 
 async fn current_root_state() -> RootState {

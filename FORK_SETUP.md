@@ -48,7 +48,7 @@ So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, beca
 ./scripts/dev-install.sh --sync     # fast-forward from upstream first
 ```
 
-It builds, signs with a stable identity, quits the running copy, installs to `/Applications/Anarlog Dev.app`, strips quarantine and relaunches. It also swallows the one expected failure: `tauri build` exits non-zero because it cannot sign an updater artifact without `TAURI_SIGNING_PRIVATE_KEY`, and that step runs **after** the bundle is written, so a bundle on disk means the build itself succeeded.
+It builds the app and CLI using `release-version.json`, disables updater artifacts for this local build, signs with a stable identity, and verifies the bundle before replacing `/Applications/Anarlog Dev.app`. It retains the previous app for rollback, updates the standalone CLI, and relaunches. A failed build stops installation even when an older bundle exists. Use `--build-only` to build and verify without replacing the running app. `CARGO_TARGET_DIR` is supported for reusing a build cache.
 
 ### Keeping permissions across rebuilds, which is the point of the signing step
 
