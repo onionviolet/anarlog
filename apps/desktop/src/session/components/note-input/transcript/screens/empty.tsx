@@ -13,6 +13,7 @@ export function TranscriptEmptyState({
   isBatching,
   hasAudio,
   percentage,
+  completedParts,
   phase,
   error,
   onRetranscribe,
@@ -23,6 +24,7 @@ export function TranscriptEmptyState({
   isBatching?: boolean;
   hasAudio?: boolean;
   percentage?: number;
+  completedParts?: { completed: number; total: number };
   phase?: "importing" | "transcribing";
   error?: string | null;
   onRetranscribe?: () => void;
@@ -73,10 +75,16 @@ export function TranscriptEmptyState({
               ? t`Importing audio...`
               : t`Generating transcript...`}
           </p>
-          {hasProgress && (
+          {completedParts ? (
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
-              {t`${Math.round((percentage ?? 0) * 100)}% complete`}
+              {t`${completedParts.completed} of ${completedParts.total} audio parts complete`}
             </p>
+          ) : (
+            hasProgress && (
+              <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
+                {t`${Math.round((percentage ?? 0) * 100)}% complete`}
+              </p>
+            )
           )}
         </div>
         {onStopTranscription && (

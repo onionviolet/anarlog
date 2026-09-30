@@ -24,6 +24,7 @@ export type BatchState = {
     string,
     {
       percentage: number;
+      completedParts?: { completed: number; total: number };
       isComplete?: boolean;
       error?: string;
       phase?: BatchPhase;
@@ -167,6 +168,14 @@ export const createBatchSlice = <T extends BatchState>(
     }
 
     const percentage = getBatchStreamPercentage(event);
+    const parts =
+      event.type === "progress"
+        ? event.partial_text?.match(/^r2t2-parts:(\d+):(\d+)$/)
+        : null;
+    const completedParts =
+      parts && Number(parts[2]) > 0 && Number(parts[1]) <= Number(parts[2])
+        ? { completed: Number(parts[1]), total: Number(parts[2]) }
+        : undefined;
     const isComplete = event.type === "result" || event.type === "terminal";
     const currentPreview = get().batchPreview[sessionId] ?? {
       wordsByChannel: {},
@@ -186,6 +195,7 @@ export const createBatchSlice = <T extends BatchState>(
         ...state.batch,
         [sessionId]: {
           percentage,
+          completedParts,
           isComplete: isComplete || false,
           phase: "transcribing",
           terminalReason: undefined,

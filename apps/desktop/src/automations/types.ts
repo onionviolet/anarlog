@@ -28,6 +28,7 @@ export function parseAutomationRunRecord(
 export type AutomationTargetRef = {
   id: string;
   name: string;
+  directConnectionId?: string;
 };
 
 export function parseAutomationTargetRef(
@@ -38,8 +39,21 @@ export function parseAutomationTargetRef(
   }
   try {
     const parsed = JSON.parse(value);
+    if (
+      parsed &&
+      "directConnectionId" in parsed &&
+      (typeof parsed.directConnectionId !== "string" ||
+        !parsed.directConnectionId.trim())
+    )
+      return null;
     if (typeof parsed?.id === "string" && typeof parsed.name === "string") {
-      return { id: parsed.id, name: parsed.name };
+      return {
+        id: parsed.id,
+        name: parsed.name,
+        ...(typeof parsed.directConnectionId === "string"
+          ? { directConnectionId: parsed.directConnectionId }
+          : {}),
+      };
     }
   } catch {
     // fall through

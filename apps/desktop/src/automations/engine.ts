@@ -12,6 +12,11 @@ import { json2md } from "@anlg/editor/markdown";
 import type { MarkdownExportOptions } from "@anlg/plugin-local-api";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
+import {
+  appendDirectNotionUpdate,
+  createDirectLinearIssues,
+  sendDirectSlackRecap,
+} from "./direct-connection";
 import { hasMarkdownExportContent } from "./markdown-export";
 import {
   type AutomationRunRecord,
@@ -421,6 +426,10 @@ async function executeSlackRecap(
   if (!recap) {
     throw new Error("no meeting summary is available yet");
   }
+  if (channel.directConnectionId !== undefined) {
+    await sendDirectSlackRecap(channel, `${recap.title}\n\n${recap.body}`);
+    return `#${channel.name}`;
+  }
   const session = await requireSupabaseSession();
   await sendSlackRecap({
     apiBaseUrl: env.VITE_API_URL,
@@ -444,14 +453,20 @@ async function executeLinearIssues(
   if (actionItems.length === 0) {
     return "no action items found for this meeting";
   }
-  const session = await requireSupabaseSession();
-  const client = apiClientForSession(session);
-  const connectionId = await findConnectionId(client, "linear");
   const recap = await loadMeetingRecap(sessionId);
   const description = recap
     ? `Action item from the Anarlog meeting "${recap.title}" (${recap.date}).`
     : "Action item from an Anarlog meeting.";
   const items = actionItems.slice(0, MAX_LINEAR_ISSUES_PER_MEETING);
+  if (team.directConnectionId !== undefined) {
+    await createDirectLinearIssues(team, items, description, beforeCreate);
+    return items.length === 1
+      ? `1 issue in ${team.name}`
+      : `${items.length} issues in ${team.name}`;
+  }
+  const session = await requireSupabaseSession();
+  const client = apiClientForSession(session);
+  const connectionId = await findConnectionId(client, "linear");
   await beforeCreate?.();
   for (const item of items) {
     const { error } = await linearCreateIssue({
@@ -479,6 +494,14 @@ async function executeNotionUpdate(
   const recap = await loadMeetingRecap(sessionId);
   if (!recap) {
     throw new Error("no meeting summary is available yet");
+  }
+  if (page.directConnectionId !== undefined) {
+    await appendDirectNotionUpdate(
+      page,
+      `${recap.date} — ${recap.title}`,
+      recap.body,
+    );
+    return page.name;
   }
   const session = await requireSupabaseSession();
   const client = apiClientForSession(session);

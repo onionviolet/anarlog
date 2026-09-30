@@ -527,6 +527,18 @@ export async function recoverRunningBatchSessions<T extends BatchStore>(
 }
 
 export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {
+  if (params.provider === "deepgram" && params.model?.startsWith("r2t2-")) {
+    try {
+      const url = new URL(params.base_url);
+      if (
+        ["http:", "https:", "ws:", "wss:"].includes(url.protocol) &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      )
+        return false;
+    } catch {
+      /* Invalid URLs are handled by the provider connection. */
+    }
+  }
   if (params.provider === "soniqo") {
     return false;
   }

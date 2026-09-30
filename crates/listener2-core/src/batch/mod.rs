@@ -2,6 +2,7 @@ mod accumulator;
 mod consolidate;
 mod diarize;
 mod progressive;
+mod r2t2;
 mod simple;
 #[cfg(test)]
 mod test_fixtures;
@@ -17,6 +18,7 @@ use consolidate::consolidate_hosted_speakers;
 pub use diarize::KnownSpeaker;
 use diarize::apply_local_diarization;
 use progressive::run_progressive_batch_session;
+pub use r2t2::clear_completed_r2t2_parts;
 use simple::{run_apple_speech_batch, run_direct_batch_for_adapter_kind, run_soniqo_batch};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display, strum::EnumString)]
@@ -250,36 +252,43 @@ async fn run_batch_inner(
     let listen_params = build_listen_params(&params, metadata.channels, metadata.sample_rate);
 
     let post_process = (runtime.clone(), params.clone(), listen_params.clone());
-    let mut output = match params.provider {
-        BatchProvider::Am => {
-            let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
-            if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
+    let mut output = if r2t2::is_local_r2t2(&params) {
+        r2t2::run(runtime, params, listen_params).await
+    } else {
+        match params.provider {
+            BatchProvider::Am => {
+                let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
+                if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
+                    run_progressive_batch_session(runtime, params, listen_params).await
+                } else {
+                    run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
+                }
+            }
+            BatchProvider::WhisperLocal => {
                 run_progressive_batch_session(runtime, params, listen_params).await
-            } else {
+            }
+            BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
+            BatchProvider::AppleSpeech => {
+                run_apple_speech_batch(runtime, params, listen_params).await
+            }
+            BatchProvider::OpenAI => {
+                if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
+                    run_progressive_batch_session(runtime, params, listen_params).await
+                } else {
+                    run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params)
+                        .await
+                }
+            }
+            BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
+                provider: batch_provider_label(BatchProvider::DashScope),
+            }
+            .into()),
+            ref provider => {
+                let adapter_kind = provider
+                    .to_adapter_kind()
+                    .expect("all non-special BatchProvider variants have an AdapterKind mapping");
                 run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
             }
-        }
-        BatchProvider::WhisperLocal => {
-            run_progressive_batch_session(runtime, params, listen_params).await
-        }
-        BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
-        BatchProvider::AppleSpeech => run_apple_speech_batch(runtime, params, listen_params).await,
-        BatchProvider::OpenAI => {
-            if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
-                run_progressive_batch_session(runtime, params, listen_params).await
-            } else {
-                run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params).await
-            }
-        }
-        BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
-            provider: batch_provider_label(BatchProvider::DashScope),
-        }
-        .into()),
-        ref provider => {
-            let adapter_kind = provider
-                .to_adapter_kind()
-                .expect("all non-special BatchProvider variants have an AdapterKind mapping");
-            run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
         }
     }?;
 

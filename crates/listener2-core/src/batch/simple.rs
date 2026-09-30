@@ -1,4 +1,4 @@
-mod direct;
+pub(super) mod direct;
 mod google_cloud;
 mod local;
 

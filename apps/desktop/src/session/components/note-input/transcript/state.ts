@@ -15,6 +15,7 @@ export type TranscriptScreen =
   | {
       kind: "running_batch";
       percentage?: number;
+      completedParts?: { completed: number; total: number };
       phase?: BatchPhase;
     }
   | {
@@ -48,6 +49,7 @@ export function useTranscriptScreen({
     batchError,
     batchPercentage,
     batchPhase,
+    completedParts,
     captureGeneration,
     captureMode,
     liveTranscriptInterrupted,
@@ -57,6 +59,7 @@ export function useTranscriptScreen({
     batchError: state.batch[sessionId]?.error ?? null,
     batchPercentage: state.batch[sessionId]?.percentage,
     batchPhase: state.batch[sessionId]?.phase,
+    completedParts: state.batch[sessionId]?.completedParts,
     captureGeneration: state.live.captureGenerationBySession[sessionId] ?? 0,
     captureMode: getLiveCaptureUiMode(state.live),
     liveTranscriptInterrupted:
@@ -79,6 +82,7 @@ export function useTranscriptScreen({
     return {
       kind: "running_batch",
       percentage: batchPercentage,
+      completedParts,
       phase: batchPhase,
     };
   }

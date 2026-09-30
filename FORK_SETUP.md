@@ -6,7 +6,23 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 
 ---
 
-## Status, 2026-09-11
+## Current session, 2026-09-30
+
+**Source:** `fix/oss-workflow-parity`, based on the upstream integration `9b49a9a620` and competitor-workflow implementation `7e28b05577`. The completed chats "Review upstream changes" and "Audit competitor features" were reconciled against this checkout.
+
+**Recording paused:** "Emt Respiratory Emergencies" (`1542e9d4-0962-4086-a209-30b2974239d8`, 205:21) was retranscribed through the local R2T2 bridge, then stopped at the owner's request. The existing saved transcript and original audio remain intact. Partial R2T2 output was recovered separately: 1,457 words through 14:43.520. JSON and SRT backups are in `~/Library/Application Support/anarlog-backups/20260929-233901-before-retranscription/`, named `r2t2-partial-1542e9d4`. This old whole-recording run has no native part checkpoints; its partial backup is not a completed replacement transcript.
+
+**New local R2T2 behavior:** two-minute requests with two seconds of boundary context, timeline correction and overlap trimming, actual completed-part counts, five-minute per-part timeouts, and atomic completed-part checkpoints beside the audio under `.r2t2-parts`. Retry uses checkpoints only when the audio bytes and decoding settings match. Completed checkpoints remain until the desktop acknowledges a successfully saved replacement, including cancellation during speaker labeling or persistence. A successful full response enters the existing transcript-preserving promotion path. Word timings supplied by the bridge are estimates within utterances, not forced alignment. The local bridge now cancels its upstream request when the desktop disconnects.
+
+**Direct automations:** Slack, Linear, and Notion can use an explicitly selected destination and user-supplied token stored in secure device storage. Missing direct credentials fail without falling back to Anarlog's backend. Hosted automation actions retain their existing gates. No external account was connected and no meeting content was sent to these services.
+
+**Verification:** all 92 `listener2-core` tests passed, including HTTP cancellation/checkpoint resume and boundary overlap. The focused desktop run passed 92 tests; typecheck, ESLint, Oxlint, translation extraction/strict compilation, 88 common tests, license checks, two MP3 tests, and strict Clippy for the affected Rust packages passed. `pnpm -F @anlg/desktop test --maxWorkers=2` passed 4,173 tests but timed out in unchanged provider-routing (30 seconds) and folder-deletion (5 seconds) tests. Their isolated rerun passed 10/10; the full-run result remains non-clean. Workflow scanning returned the same 350 existing findings in offline mode; authenticated online audits were unavailable.
+
+**Delivery gate:** the production 1.4.28 app built and passed strict deep signature verification; installation and native UI/provider smoke checks remain pending. The older staged 1.4.28 app predates these changes and is not their delivery artifact.
+
+**Resume with:** after installation, open the EMT note and use Re-transcribe with the current local R2T2 selection when ready to continue. Leave it stopped until then. The recovered partial SRT is independently reopenable; automatic checkpoint resume applies to new part-based runs.
+
+## Historical status, 2026-09-11
 
 - **Refresh integrated locally.** `refactor/local-first-upstream-refresh` starts from upstream `82f389d6ac` and replays the fork's policy, build, and diarization work. It has not been pushed or installed yet.
 - **Upstream reliability absorbed.** The refresh includes the recording recovery, provider validation, storage relocation, editor undo, privacy, Bluetooth microphone, and OpenRouter diarization work shipped since the previous fork point.
@@ -24,7 +40,7 @@ Upstream is MIT and the local pipeline is mostly free already, but a few feature
 
 So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, because they are served by someone else's infrastructure and unlocking them would only produce confusing failures. **Dictionary, app icons, playback speed, summary-format editing, automation drafts, and Markdown-export automations are ungated** because they execute on this machine.
 
-`branch: refactor/local-first-upstream-refresh`
+`branch: fix/oss-workflow-parity`
 
 | Feature | Upstream | Here | Why |
 |---|---|---|---|
@@ -33,7 +49,8 @@ So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, beca
 | Playback speed | Pro | free | Changes the local WaveSurfer player |
 | Summary-format editing | Pro | free | Stores a local template used with the configured model |
 | Automation drafts and Markdown export | Pro | free | Stored and executed locally |
-| Slack, Linear, and Notion automation actions | Pro | Pro | Use Anarlog's API, Supabase session, and Nango connections |
+| Hosted Slack, Linear, and Notion automation actions | Pro | Pro | Use Anarlog's API, Supabase session, and Nango connections |
+| Direct Slack, Linear, and Notion token connections | unavailable | free | Call the user-selected service directly with device-local credentials |
 | Sync, Teams, Cloud API | Pro | Pro | Anarlog's servers do the work |
 
 **Automation access is split at the actual transport boundary.** Draft editing and Markdown export do not wait on billing claims. Enabling Slack, Linear, or Notion actions still requires paid access because their implementations call Anarlog's backend rather than those services directly.
@@ -127,7 +144,7 @@ So **Mandarin is now two clicks in the model picker, not a code change.** Apple 
 
 **[grammar] The lesson worth more than the feature:** a fork whose whole purpose is unlocking something upstream is deliberately holding back is a race against upstream, and upstream usually wins. Before reviving any fork, diff the goal against today's upstream, not against the upstream you forked. This one was 1485 commits stale and the goal had already been met twice.
 
-## What is still worth forking, ranked
+## Historical fork opportunities, 2026-09-04
 
 0. **DONE 2026-09-04: diarization is untied from Parakeet, so speaker labels and Mandarin now coexist.** Upstream gave labels **or** Chinese and never both, because `diarize_samples` refused every model but `ParakeetBatch` and Parakeet carries no Chinese.
 
@@ -168,7 +185,7 @@ pub const fn is_available_on_current_platform(self) -> bool {
 
 ---
 
-## 0. Prerequisites, and which are actually required now
+## 0. Historical prerequisite snapshot, 2026-09-04
 
 **Building is optional.** Releases ship almost daily and the app is a notarized download. Build only when changing code.
 
@@ -256,7 +273,7 @@ cd apps/desktop && pnpm tauri:dev              # compiles the Rust core, launche
 
 ## 3. Troubleshooting
 
-- **`resolving Soniqo Swift dependencies failed`, or a `BuildServerProtocol.framework` dyld error:** you have only the Command Line Tools. Install full Xcode and re-point `xcode-select`. This is the first-build blocker and it is still unresolved on this machine.
+- **`resolving Soniqo Swift dependencies failed`, or a `BuildServerProtocol.framework` dyld error:** you have only the Command Line Tools. Install full Xcode and re-point `xcode-select`. This was the first-build blocker in the 2026-09-04 snapshot. Full Xcode and Metal are now available on this host.
 - **`error[E0463]: can't find crate for ref_cast_impl`, and the same for `serde_derive`, `thiserror_impl`, `strum_macros`, `tracing_attributes`.** Earlier notes here called this a parallel-build race and told you to run it again. **That was wrong, corrected 2026-09-04.** Running it again surfaces the real message underneath: `dlopen(...libserde_derive....dylib): mis-aligned LINKEDIT string pool`. The proc-macro dylibs in `target/` were built by an older toolchain and the current linker refuses to load them, so every macro-dependent crate fails at once. **Fix: `cargo clean`.** It removed 508 MB here and the build was healthy immediately after. **[grammar] When several unrelated crates fail the same way at the same moment, suspect one shared input rather than several coincidences.**
 
 **But the shared input is not always the cache, and assuming it was cost an hour on 2026-09-04.** The same error came back on dylibs that had just been built, with the failing crate name changing every run (`time`, then `phf`, then `thiserror`). The real cause was that **Xcode was installing in the background and the toolchain was being replaced underneath the running compiler.** Once the install finished, every link failed cleanly instead, with `cc` exiting 69 and saying the Xcode license had not been agreed to.

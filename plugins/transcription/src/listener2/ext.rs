@@ -197,6 +197,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
 
     pub fn acknowledge_completed_transcription(&self, session_id: String) {
         let registry = self.manager.state::<Arc<BatchSessionRegistry>>();
+        if let Ok(completed) = lock_completed_batches(&registry)
+            && let Some(entry) = completed.get(&session_id)
+            && matches!(
+                entry.session.provider.as_ref(),
+                Some(core::BatchProvider::Deepgram)
+            )
+            && entry
+                .session
+                .model
+                .as_deref()
+                .is_some_and(|model| model.starts_with("r2t2-"))
+            && let Err(error) =
+                core::clear_completed_r2t2_parts(&entry.session.file_path, &entry.response)
+        {
+            tracing::warn!(?error, "failed_to_remove_completed_r2t2_parts");
+        }
         discard_completed_batch(&registry, &session_id);
     }
 

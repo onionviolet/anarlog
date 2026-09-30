@@ -266,7 +266,7 @@ async fn run_segmented_batch<A: BatchSttAdapter>(
 }
 
 /// Segments are transcribed independently, so their timestamps restart at zero.
-pub(super) fn merge_segment_responses(
+pub(in crate::batch) fn merge_segment_responses(
     responses: Vec<Response>,
     segment_duration: Duration,
 ) -> Response {
@@ -372,7 +372,7 @@ pub(super) fn merge_segment_responses(
     }
 }
 
-pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
+pub(in crate::batch) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
     provider: &str,
     params: BatchParams,
     listen_params: owhisper_interface::ListenParams,

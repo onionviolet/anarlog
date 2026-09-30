@@ -26,7 +26,10 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
+import { DirectConnectionChoice } from "./direct-connection";
+
 import { useAuth } from "~/auth";
+import { supabase } from "~/auth/client";
 import { useConnections } from "~/auth/useConnections";
 import {
   type AutomationRunRecord,
@@ -157,6 +160,22 @@ export function useAuthedApiClient() {
   return createClient({ baseUrl: env.VITE_API_URL, headers });
 }
 
+async function currentApiSession() {
+  if (!supabase) throw new Error("not signed in");
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session || data.session.user.is_anonymous)
+    throw new Error("not signed in");
+  return data.session;
+}
+
+async function currentApiClient() {
+  const session = await currentApiSession();
+  return createClient({
+    baseUrl: env.VITE_API_URL,
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+}
+
 function ConfigRow({
   title,
   value,
@@ -249,13 +268,26 @@ export function SlackRecapConfig({
         selected ? `#${selected.name}` : <Trans>No channel selected yet.</Trans>
       }
     >
-      <IntegrationGate
-        integrationId="slack"
-        connectLabel={<Trans>Connect Slack</Trans>}
-        reconnectLabel={<Trans>Reconnect Slack</Trans>}
+      <DirectConnectionChoice
+        integration="slack"
+        selected={selected}
+        onChange={async (target) => {
+          if (onChange) onChange(target);
+          else
+            await setSettingValue(
+              "automation_slack_recap_channel",
+              JSON.stringify(target),
+            );
+        }}
       >
-        {() => <SlackChannelSelect selected={selected} onChange={onChange} />}
-      </IntegrationGate>
+        <IntegrationGate
+          integrationId="slack"
+          connectLabel={<Trans>Connect Slack</Trans>}
+          reconnectLabel={<Trans>Reconnect Slack</Trans>}
+        >
+          {() => <SlackChannelSelect selected={selected} onChange={onChange} />}
+        </IntegrationGate>
+      </DirectConnectionChoice>
     </ConfigRow>
   );
 }
@@ -280,12 +312,14 @@ function SlackChannelSelect({
   const channels = useQuery({
     queryKey: ["automation-slack-channels", auth.session?.user.id],
     enabled: Boolean(auth.session?.access_token),
-    queryFn: ({ signal }) =>
-      listSlackChannels({
+    queryFn: async ({ signal }) => {
+      const session = await currentApiSession();
+      return listSlackChannels({
         apiBaseUrl: env.VITE_API_URL,
-        accessToken: auth.session?.access_token ?? "",
+        accessToken: session.access_token,
         signal,
-      }),
+      });
+    },
   });
 
   return (
@@ -343,19 +377,32 @@ export function LinearIssuesConfig({
       title={<Trans>Linear team</Trans>}
       value={selected?.name ?? <Trans>No team selected yet.</Trans>}
     >
-      <IntegrationGate
-        integrationId="linear"
-        connectLabel={<Trans>Connect Linear</Trans>}
-        reconnectLabel={<Trans>Reconnect Linear</Trans>}
+      <DirectConnectionChoice
+        integration="linear"
+        selected={selected}
+        onChange={async (target) => {
+          if (onChange) onChange(target);
+          else
+            await setSettingValue(
+              "automation_linear_issues_team",
+              JSON.stringify(target),
+            );
+        }}
       >
-        {(connection) => (
-          <LinearTeamSelect
-            connection={connection}
-            selected={selected}
-            onChange={onChange}
-          />
-        )}
-      </IntegrationGate>
+        <IntegrationGate
+          integrationId="linear"
+          connectLabel={<Trans>Connect Linear</Trans>}
+          reconnectLabel={<Trans>Reconnect Linear</Trans>}
+        >
+          {(connection) => (
+            <LinearTeamSelect
+              connection={connection}
+              selected={selected}
+              onChange={onChange}
+            />
+          )}
+        </IntegrationGate>
+      </DirectConnectionChoice>
     </ConfigRow>
   );
 }
@@ -370,7 +417,7 @@ function LinearTeamSelect({
   onChange?: (target: AutomationTargetRef) => void;
 }) {
   const { t } = useLingui();
-  const client = useAuthedApiClient();
+  const auth = useAuth();
   const saveTarget = useSaveTarget("automation_linear_issues_team");
   const applyTarget = (target: AutomationTargetRef) => {
     if (onChange) {
@@ -380,12 +427,14 @@ function LinearTeamSelect({
     saveTarget.mutate(target);
   };
   const teams = useQuery({
-    queryKey: ["automation-linear-teams", connection.connection_id],
-    enabled: client !== null,
+    queryKey: [
+      "automation-linear-teams",
+      auth.session?.user.id,
+      connection.connection_id,
+    ],
+    enabled: Boolean(auth.session?.access_token),
     queryFn: async () => {
-      if (!client) {
-        throw new Error("not signed in");
-      }
+      const client = await currentApiClient();
       const { data, error } = await linearListTeams({
         client,
         body: { connection_id: connection.connection_id },
@@ -444,19 +493,32 @@ export function NotionUpdateConfig({
         title={<Trans>Notion page</Trans>}
         value={selected?.name ?? <Trans>No page selected yet.</Trans>}
       />
-      <IntegrationGate
-        integrationId="notion"
-        connectLabel={<Trans>Connect Notion</Trans>}
-        reconnectLabel={<Trans>Reconnect Notion</Trans>}
+      <DirectConnectionChoice
+        integration="notion"
+        selected={selected}
+        onChange={async (target) => {
+          if (onChange) onChange(target);
+          else
+            await setSettingValue(
+              "automation_notion_update_page",
+              JSON.stringify(target),
+            );
+        }}
       >
-        {(connection) => (
-          <NotionPageSearch
-            connection={connection}
-            selected={selected}
-            onChange={onChange}
-          />
-        )}
-      </IntegrationGate>
+        <IntegrationGate
+          integrationId="notion"
+          connectLabel={<Trans>Connect Notion</Trans>}
+          reconnectLabel={<Trans>Reconnect Notion</Trans>}
+        >
+          {(connection) => (
+            <NotionPageSearch
+              connection={connection}
+              selected={selected}
+              onChange={onChange}
+            />
+          )}
+        </IntegrationGate>
+      </DirectConnectionChoice>
     </div>
   );
 }
@@ -471,7 +533,7 @@ function NotionPageSearch({
   onChange?: (target: AutomationTargetRef) => void;
 }) {
   const { t } = useLingui();
-  const client = useAuthedApiClient();
+  const auth = useAuth();
   const saveTarget = useSaveTarget("automation_notion_update_page");
   const applyTarget = (target: AutomationTargetRef) => {
     if (onChange) {
@@ -485,14 +547,13 @@ function NotionPageSearch({
   const pages = useQuery({
     queryKey: [
       "automation-notion-pages",
+      auth.session?.user.id,
       connection.connection_id,
       submittedQuery,
     ],
-    enabled: submittedQuery !== null && client !== null,
+    enabled: submittedQuery !== null && Boolean(auth.session?.access_token),
     queryFn: async () => {
-      if (!client) {
-        throw new Error("not signed in");
-      }
+      const client = await currentApiClient();
       const { data, error } = await notionSearchPages({
         client,
         body: {

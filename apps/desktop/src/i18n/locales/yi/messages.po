@@ -55,6 +55,12 @@ msgstr ""
 msgid "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
 msgstr ""
 
+#. placeholder {0}: completedParts.completed
+#. placeholder {1}: completedParts.total
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "{0} of {1} audio parts complete"
+msgstr ""
+
 #. placeholder {0}: access.usedSeats
 #. placeholder {1}: access.seatLimit
 #: src/settings/general/billing.tsx
@@ -570,6 +576,10 @@ msgstr ""
 msgid "Anarlog CLI"
 msgstr ""
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Anarlog connection"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
 msgstr ""
@@ -659,6 +669,10 @@ msgstr ""
 
 #: src/settings/ai/shared/provider-selection-prompt.ts
 msgid "API key saved"
+msgstr ""
+
+#: src/settings/automations/direct-connection.tsx
+msgid "API token"
 msgstr ""
 
 #: src/sidebar/settings-nav-groups.ts
@@ -1595,6 +1609,11 @@ msgstr ""
 msgid "Connected and working"
 msgstr ""
 
+#. placeholder {0}: selected.name
+#: src/settings/automations/direct-connection.tsx
+msgid "Connected directly to {0}. Enter a token to replace this connection."
+msgstr ""
+
 #. placeholder {0}: subscriptionProvider.displayName
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your {0} subscription."
@@ -1842,6 +1861,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Could not save the automation setting"
+msgstr ""
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Could not save the connection"
 msgstr ""
 
 #: src/sidebar/folder-name-dialog.tsx
@@ -2167,6 +2190,10 @@ msgstr ""
 msgid "Desktop edits published. Sharing resumed."
 msgstr ""
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Destination ID"
+msgstr ""
+
 #: src/settings/general/summary-length.tsx
 msgid "Detailed"
 msgstr ""
@@ -2222,6 +2249,10 @@ msgstr ""
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Dictionary"
+msgstr ""
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Direct connection saved"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -5888,6 +5919,10 @@ msgstr ""
 msgid "Team library"
 msgstr ""
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Team or page ID"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Team plan"
 msgstr ""
@@ -6372,6 +6407,10 @@ msgstr ""
 msgid "Use files"
 msgstr ""
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Use my own token"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Use recovery key instead"
 msgstr ""
@@ -6414,6 +6453,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
+msgstr ""
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Verify destination and save"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -6712,6 +6755,10 @@ msgstr ""
 
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."
+msgstr ""
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Your token stays in secure storage on this device. This automation sends notes directly to the destination below when enabled. No Anarlog sign-in is needed."
 msgstr ""
 
 #: src/store/zustand/listener/general-batch.ts

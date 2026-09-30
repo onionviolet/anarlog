@@ -18,19 +18,38 @@ pub fn encode_mono_segments(
     output_dir: &Path,
     segment_duration: Duration,
 ) -> Result<Vec<PathBuf>, Error> {
+    encode_mono_segments_with_overlap(source_path, output_dir, segment_duration, Duration::ZERO)
+}
+
+/// Prefixes each subsequent segment with the previous segment's tail so speech
+/// recognition can retain context at a boundary without reloading all audio.
+pub fn encode_mono_segments_with_overlap(
+    source_path: &Path,
+    output_dir: &Path,
+    segment_duration: Duration,
+    overlap: Duration,
+) -> Result<Vec<PathBuf>, Error> {
     let source = anlg_audio_utils::source_from_path(source_path)?;
     let sample_rate: u32 = source.sample_rate().into();
     let channels = usize::from(u16::from(source.channels())).max(1);
-    let frames_per_segment = frames_per_segment(sample_rate, segment_duration)?;
+    let segment_frames = frames_per_segment(sample_rate, segment_duration)?;
+    let overlap_frames = if overlap.is_zero() {
+        0
+    } else {
+        frames_per_segment(sample_rate, overlap)?
+    };
+    if overlap_frames >= segment_frames {
+        return Err(Error::InvalidSegmentDuration(overlap));
+    }
+    let mut tail = std::collections::VecDeque::with_capacity(overlap_frames);
 
     let mut paths: Vec<PathBuf> = Vec::new();
     let mut current: Option<SegmentEncoder> = None;
 
     for sample in anlg_audio_utils::mono_frames(source, channels) {
-        if current
-            .as_ref()
-            .is_some_and(|segment| segment.frames >= frames_per_segment)
-        {
+        if current.as_ref().is_some_and(|segment| {
+            segment.frames >= segment_frames + if paths.len() > 1 { overlap_frames } else { 0 }
+        }) {
             current
                 .take()
                 .expect("segment was just observed")
@@ -41,12 +60,24 @@ pub fn encode_mono_segments(
             let path = output_dir.join(format!("segment-{:04}.mp3", paths.len()));
             current = Some(SegmentEncoder::create(&path, sample_rate)?);
             paths.push(path);
+            for &sample in &tail {
+                current
+                    .as_mut()
+                    .expect("segment was just created")
+                    .push(sample)?;
+            }
         }
 
         current
             .as_mut()
             .expect("segment was just created")
             .push(sample)?;
+        if overlap_frames > 0 {
+            if tail.len() == overlap_frames {
+                tail.pop_front();
+            }
+            tail.push_back(sample);
+        }
     }
 
     if let Some(segment) = current {

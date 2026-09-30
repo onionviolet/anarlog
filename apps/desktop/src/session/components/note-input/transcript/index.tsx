@@ -86,6 +86,7 @@ function TranscriptContent({
         <TranscriptEmptyState
           isBatching
           percentage={screen.percentage}
+          completedParts={screen.completedParts}
           phase={screen.phase}
           onStopTranscription={
             screen.phase === "importing" ? undefined : handleStopTranscription

@@ -317,7 +317,12 @@ function CustomWorkflowDetails({
   const saveWorkflow = useSaveWorkflow();
   const runsLocally =
     workflow.steps.length > 0 &&
-    workflow.steps.every((step) => step.type === "markdown_export");
+    workflow.steps.every(
+      (step) =>
+        step.type === "markdown_export" ||
+        (step.type !== "google_drive_export" &&
+          !!step.target?.directConnectionId),
+    );
   const canEnable = runsLocally || cloudActionsAllowed;
   const accessReady = runsLocally || billing.isReady;
 
@@ -534,7 +539,10 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         return t`Choose a Notion page first.`;
     }
   })();
-  const runsLocally = starterId === "markdown-export";
+  const runsLocally =
+    starterId === "markdown-export" ||
+    (starterId !== "google-drive" &&
+      !!parseAutomationTargetRef(targetRaw)?.directConnectionId);
   const canEnable = runsLocally || cloudActionsAllowed;
   const accessReady = runsLocally || billing.isReady;
 

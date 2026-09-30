@@ -9637,6 +9637,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "specta",
  "strum 0.28.0",
  "tauri-specta",
@@ -9648,6 +9649,7 @@ dependencies = [
  "transcribe-core",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
+ "url",
  "user-error",
  "voiceprint",
 ]

@@ -491,10 +491,7 @@ fn transcribe_soniqo_file(
     }
 
     let mut transcripts = collect_soniqo_channel_transcripts(channel_results)?;
-    for (transcript, speaker_segments) in transcripts
-        .iter_mut()
-        .zip(channel_speaker_segments.into_iter())
-    {
+    for (transcript, speaker_segments) in transcripts.iter_mut().zip(channel_speaker_segments) {
         transcript.speaker_segments = speaker_segments;
     }
     Ok(transcripts)

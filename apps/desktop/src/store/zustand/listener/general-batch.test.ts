@@ -220,6 +220,24 @@ describe("runBatchSession", () => {
     expect(syntheticBatchProgress(10_000_000)).toBe(0.88);
   });
 
+  test("uses measured part progress for loopback R2T2 while retaining hosted provider progress", () => {
+    const params = {
+      session_id: "session",
+      provider: "deepgram" as const,
+      file_path: "/tmp/audio.mp3",
+      model: "r2t2-asr-stream",
+      base_url: "http://127.0.0.1:8490",
+      api_key: "",
+    };
+    expect(shouldUseSyntheticBatchProgress(params)).toBe(false);
+    expect(
+      shouldUseSyntheticBatchProgress({
+        ...params,
+        base_url: "https://api.deepgram.com/v1",
+      }),
+    ).toBe(true);
+  });
+
   test("ticks synthetic progress for blocking batch providers", async () => {
     vi.useFakeTimers();
 

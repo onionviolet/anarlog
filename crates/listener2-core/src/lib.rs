@@ -6,7 +6,7 @@ mod subtitle;
 
 pub use batch::{
     BatchParams, BatchProvider, BatchRunMode, BatchRunOutput, KnownSpeaker,
-    expects_progressive_batch, run_batch, uses_local_diarization,
+    clear_completed_r2t2_parts, expects_progressive_batch, run_batch, uses_local_diarization,
 };
 pub use error::*;
 pub use events::*;

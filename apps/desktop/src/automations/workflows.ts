@@ -264,10 +264,23 @@ function parseStep(value: unknown): WorkflowStep | null {
 function parseTarget(value: unknown): AutomationTargetRef | null {
   if (
     isRecord(value) &&
+    "directConnectionId" in value &&
+    (typeof value.directConnectionId !== "string" ||
+      !value.directConnectionId.trim())
+  )
+    return null;
+  if (
+    isRecord(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string"
   ) {
-    return { id: value.id, name: value.name };
+    return {
+      id: value.id,
+      name: value.name,
+      ...(typeof value.directConnectionId === "string"
+        ? { directConnectionId: value.directConnectionId }
+        : {}),
+    };
   }
   return null;
 }

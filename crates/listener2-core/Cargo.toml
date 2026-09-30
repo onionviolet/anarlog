@@ -30,11 +30,13 @@ owhisper-interface = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 specta = { workspace = true, optional = true }
 strum = { workspace = true, features = ["derive"] }
 tauri-specta = { workspace = true, optional = true, features = ["derive"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
+url = { workspace = true }
 
 ractor = { workspace = true, features = ["async-trait"] }
 

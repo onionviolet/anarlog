@@ -55,6 +55,12 @@ msgstr "{0} min"
 msgid "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
 msgstr "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
 
+#. placeholder {0}: completedParts.completed
+#. placeholder {1}: completedParts.total
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "{0} of {1} audio parts complete"
+msgstr "{0} of {1} audio parts complete"
+
 #. placeholder {0}: access.usedSeats
 #. placeholder {1}: access.seatLimit
 #: src/settings/general/billing.tsx
@@ -570,6 +576,10 @@ msgstr "Anarlog can read meeting details"
 msgid "Anarlog CLI"
 msgstr "Anarlog CLI"
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Anarlog connection"
+msgstr "Anarlog connection"
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
 msgstr "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
@@ -660,6 +670,10 @@ msgstr "API Key"
 #: src/settings/ai/shared/provider-selection-prompt.ts
 msgid "API key saved"
 msgstr "API key saved"
+
+#: src/settings/automations/direct-connection.tsx
+msgid "API token"
+msgstr "API token"
 
 #: src/sidebar/settings-nav-groups.ts
 msgid "App"
@@ -1595,6 +1609,11 @@ msgstr "Connected accounts"
 msgid "Connected and working"
 msgstr "Connected and working"
 
+#. placeholder {0}: selected.name
+#: src/settings/automations/direct-connection.tsx
+msgid "Connected directly to {0}. Enter a token to replace this connection."
+msgstr "Connected directly to {0}. Enter a token to replace this connection."
+
 #. placeholder {0}: subscriptionProvider.displayName
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your {0} subscription."
@@ -1843,6 +1862,10 @@ msgstr "Could not save the automation draft"
 #: src/settings/automations/starter-config.tsx
 msgid "Could not save the automation setting"
 msgstr "Could not save the automation setting"
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Could not save the connection"
+msgstr "Could not save the connection"
 
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Could not save the folder."
@@ -2167,6 +2190,10 @@ msgstr "Describe the template purpose..."
 msgid "Desktop edits published. Sharing resumed."
 msgstr "Desktop edits published. Sharing resumed."
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Destination ID"
+msgstr "Destination ID"
+
 #: src/settings/general/summary-length.tsx
 msgid "Detailed"
 msgstr "Detailed"
@@ -2223,6 +2250,10 @@ msgstr "Dictation uses your microphone, transcription provider, languages, and d
 #: src/sidebar/settings-nav-groups.ts
 msgid "Dictionary"
 msgstr "Dictionary"
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Direct connection saved"
+msgstr "Direct connection saved"
 
 #: src/settings/automations/index.tsx
 msgid "Disable"
@@ -5888,6 +5919,10 @@ msgstr "Team folder workspace"
 msgid "Team library"
 msgstr "Team library"
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Team or page ID"
+msgstr "Team or page ID"
+
 #: src/settings/team/index.tsx
 msgid "Team plan"
 msgstr "Team plan"
@@ -6372,6 +6407,10 @@ msgstr "Use default languages"
 msgid "Use files"
 msgstr "Use files"
 
+#: src/settings/automations/direct-connection.tsx
+msgid "Use my own token"
+msgstr "Use my own token"
+
 #: src/settings/sync/index.tsx
 msgid "Use recovery key instead"
 msgstr "Use recovery key instead"
@@ -6415,6 +6454,10 @@ msgstr "Use Windows Hello face, PIN, or password to view."
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr "Use your microphone to capture your voice"
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Verify destination and save"
+msgstr "Verify destination and save"
 
 #: src/settings/team/index.tsx
 msgid "Verify domain"
@@ -6713,6 +6756,10 @@ msgstr "Your recovery key encrypts synced notes before they leave this device. A
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."
 msgstr "Your summary is ready."
+
+#: src/settings/automations/direct-connection.tsx
+msgid "Your token stays in secure storage on this device. This automation sends notes directly to the destination below when enabled. No Anarlog sign-in is needed."
+msgstr "Your token stays in secure storage on this device. This automation sends notes directly to the destination below when enabled. No Anarlog sign-in is needed."
 
 #: src/store/zustand/listener/general-batch.ts
 msgid "Your transcript is ready."

@@ -15,6 +15,13 @@ const mocks = vi.hoisted(() => ({
   listConnections: vi.fn(),
   linearCreateIssue: vi.fn(),
   notionAppendUpdate: vi.fn(),
+  sendDirectSlackRecap: vi.fn(),
+}));
+
+vi.mock("./direct-connection", () => ({
+  sendDirectSlackRecap: mocks.sendDirectSlackRecap,
+  createDirectLinearIssues: vi.fn(),
+  appendDirectNotionUpdate: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-local-api", () => ({
@@ -974,4 +981,26 @@ describe("Google Drive workflow delivery", () => {
     expect(mocks.googleDrivePrepareExport).not.toHaveBeenCalled();
     expect(mocks.googleDriveExportMarkdown).not.toHaveBeenCalled();
   });
+});
+
+it("does not fall back to Anarlog when a saved direct connection is unavailable", async () => {
+  storedSettings({
+    automation_slack_recap_enabled: true,
+    automation_slack_recap_channel: JSON.stringify({
+      id: "channel",
+      name: "notes",
+      directConnectionId: "direct",
+    }),
+  });
+  mockDbRows();
+  mocks.sendDirectSlackRecap.mockRejectedValueOnce(
+    new Error("Reconnect this direct automation on this device."),
+  );
+  await runNoteEnhancedAutomations("meeting");
+  expect(recordedRun("automation_slack_recap_last_run")).toMatchObject({
+    status: "error",
+    detail: "Reconnect this direct automation on this device.",
+  });
+  expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+  expect(mocks.getSession).not.toHaveBeenCalled();
 });
