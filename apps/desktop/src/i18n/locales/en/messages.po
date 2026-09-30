@@ -756,6 +756,10 @@ msgstr "Audio available"
 msgid "Audio file retention"
 msgstr "Audio file retention"
 
+#: src/stt/audio-import-queue-view.tsx
+msgid "Audio imports"
+msgstr "Audio imports"
+
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
 msgstr "Audio is not available on this device."
@@ -932,6 +936,7 @@ msgstr "Can view"
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/crm/index.tsx
 #: src/settings/dictionary/index.tsx
@@ -942,6 +947,7 @@ msgstr "Can view"
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
 #: src/sidebar/folder-name-dialog.tsx
+#: src/stt/audio-import-queue-view.tsx
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
@@ -974,6 +980,14 @@ msgstr "Cancel the invitation for {0}? They will no longer be able to join using
 #: src/settings/team/index.tsx
 msgid "Cancel transfer"
 msgstr "Cancel transfer"
+
+#: src/stt/audio-import-queue-view.tsx
+msgid "Cancelled"
+msgstr "Cancelled"
+
+#: src/stt/audio-import-queue-view.tsx
+msgid "Cancelling"
+msgstr "Cancelling"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture 10 conversations. More moments you can return to."
@@ -1092,6 +1106,10 @@ msgstr "Choose a .bin model"
 msgid "Choose a channel"
 msgstr "Choose a channel"
 
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Choose a configured batch model. Download local models in transcription settings first."
+msgstr "Choose a configured batch model. Download local models in transcription settings first."
+
 #: src/settings/sync/index.tsx
 msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 msgstr "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
@@ -1206,6 +1224,10 @@ msgstr "Choose how long recordings stay on this device."
 msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
 
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Choose settings for this recording. Your default settings stay the same. The saved transcript is replaced only after transcription succeeds."
+msgstr "Choose settings for this recording. Your default settings stay the same. The saved transcript is replaced only after transcription succeeds."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr "Choose template icon"
@@ -1235,6 +1257,10 @@ msgstr "Claim email domain"
 msgid "Clean Up"
 msgstr "Clean Up"
 
+#: src/settings/dictation.tsx
+msgid "Clean up dictation"
+msgstr "Clean up dictation"
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean up legacy files?"
 msgstr "Clean up legacy files?"
@@ -1242,6 +1268,10 @@ msgstr "Clean up legacy files?"
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
+
+#: src/stt/audio-import-queue-view.tsx
+msgid "Clear finished"
+msgstr "Clear finished"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
@@ -1436,6 +1466,10 @@ msgstr "Complete onboarding. You're ready for your next conversation."
 #: src/instruction/index.tsx
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
+
+#: src/stt/audio-import-queue-view.tsx
+msgid "Completed"
+msgstr "Completed"
 
 #: src/settings/general/notification.tsx
 msgid "Completion sound"
@@ -1677,6 +1711,10 @@ msgstr "Copy link"
 msgid "Copy message"
 msgstr "Copy message"
 
+#: src/settings/dictation.tsx
+msgid "Copy original transcript"
+msgstr "Copy original transcript"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Copy recovery key"
 msgstr "Copy recovery key"
@@ -1688,6 +1726,10 @@ msgstr "Copy this key now — it is only shown once."
 #: src/settings/developers/webhooks.tsx
 msgid "Copy this signing secret now — it is only shown once."
 msgstr "Copy this signing secret now — it is only shown once."
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Could not check language support."
+msgstr "Could not check language support."
 
 #. placeholder {0}: error.message
 #: src/settings/developers/cli.tsx
@@ -2164,6 +2206,10 @@ msgstr "Devices"
 msgid "Dictation"
 msgstr "Dictation"
 
+#: src/dictation/lifecycle.tsx
+msgid "Dictation cleanup failed. Using the original transcript."
+msgstr "Dictation cleanup failed. Using the original transcript."
+
 #: src/settings/dictation-shortcut.tsx
 msgid "Dictation shortcut"
 msgstr "Dictation shortcut"
@@ -2488,6 +2534,10 @@ msgstr "Export the meeting as Markdown"
 msgid "Exporting..."
 msgstr "Exporting..."
 
+#: src/stt/audio-import-queue-view.tsx
+msgid "Failed"
+msgstr "Failed"
+
 #: src/onboarding/calendar.tsx
 msgid "Failed to load Google Calendar"
 msgstr "Failed to load Google Calendar"
@@ -2569,6 +2619,10 @@ msgstr "Finishing connection…"
 #: src/settings/stats/badge-collection.tsx
 msgid "First Words"
 msgstr "First Words"
+
+#: src/settings/dictation.tsx
+msgid "Fix punctuation and remove filler words with your selected AI model. Local models keep this on your device; remote models receive the text. The original transcript stays available below. If cleanup fails, use the original text."
+msgstr "Fix punctuation and remove filler words with your selected AI model. Local models keep this on your device; remote models receive the text. The original transcript stays available below. If cleanup fails, use the original text."
 
 #: src/templates/template-icon-picker.tsx
 msgid "Flags"
@@ -3108,6 +3162,10 @@ msgstr "Key name (e.g. Claude Code)"
 msgid "Kimi Code API key"
 msgstr "Kimi Code API key"
 
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Language"
+msgstr "Language"
+
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Language & Region"
@@ -3313,6 +3371,10 @@ msgstr "Lock Note"
 #: src/sidebar/timeline/item.tsx
 msgid "Locked note"
 msgstr "Locked note"
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Loop selection"
+msgstr "Loop selection"
 
 #: src/settings/ai/llm/select.tsx
 msgid "Low"
@@ -3542,6 +3604,10 @@ msgstr "Migration status unavailable"
 #: src/main/windows-window-controls.tsx
 msgid "Minimize"
 msgstr "Minimize"
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Model"
+msgstr "Model"
 
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
@@ -4111,6 +4177,10 @@ msgstr "Organization"
 msgid "Organization name"
 msgstr "Organization name"
 
+#: src/settings/dictation.tsx
+msgid "Original transcript"
+msgstr "Original transcript"
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Other device's version"
 msgstr "Other device's version"
@@ -4336,6 +4406,10 @@ msgstr "Pro for every member, shared workspaces, roles, and centralized billing.
 msgid "Pro trial"
 msgstr "Pro trial"
 
+#: src/stt/audio-import-queue-view.tsx
+msgid "Processing"
+msgstr "Processing"
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Production"
 msgstr "Production"
@@ -4344,10 +4418,19 @@ msgstr "Production"
 msgid "Protect cloud sync"
 msgstr "Protect cloud sync"
 
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Provider"
+msgstr "Provider"
+
 #: src/session-sharing/general-access.tsx
 msgid "Public on the web"
 msgstr "Public on the web"
 
+#: src/stt/audio-import-queue-view.tsx
+msgid "Queued"
+msgstr "Queued"
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Re-transcribe"
 msgstr "Re-transcribe"
@@ -5582,6 +5665,7 @@ msgid "Stone"
 msgstr "Stone"
 
 #: src/composer/index.tsx
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -5594,6 +5678,10 @@ msgstr "Stop listening"
 #: src/settings/general/meeting-settings.tsx
 msgid "Stop listening when your call ends."
 msgstr "Stop listening when your call ends."
+
+#: src/audio-player/timeline.tsx
+msgid "Stop looping"
+msgstr "Stop looping"
 
 #: src/chat/components/input/index.tsx
 msgid "Stop response"
@@ -5626,6 +5714,10 @@ msgstr "Story Collector"
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
+
+#: src/session/components/outer-header/overflow/export-modal.tsx
+msgid "Subtitles include the transcript and speaker labels only."
+msgstr "Subtitles include the transcript and speaker labels only."
 
 #: src/settings/general/notification.tsx
 msgid "Success"
@@ -5912,6 +6004,10 @@ msgstr "This guest needs Team access"
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 msgstr "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "This model does not support the selected languages."
+msgstr "This model does not support the selected languages."
+
 #: src/settings/sync/index.tsx
 msgid "This name is synced to your other devices signed in to this account."
 msgstr "This name is synced to your other devices signed in to this account."
@@ -5923,6 +6019,14 @@ msgstr "This note was edited on another device at the same time. The later edit 
 #: src/chat/components/session-provider.tsx
 msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
 msgstr "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "This recording stays on this device."
+msgstr "This recording stays on this device."
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "This recording will be sent to the selected provider."
+msgstr "This recording will be sent to the selected provider."
 
 #: src/settings/plan-gate.tsx
 msgid "This requires Anarlog Enterprise"
@@ -5975,6 +6079,7 @@ msgid "Transcribing voice input"
 msgstr "Transcribing voice input"
 
 #: src/chat/components/input/index.tsx
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
 #: src/settings/dictation.tsx
 msgid "Transcribing…"
 msgstr "Transcribing…"
@@ -6258,6 +6363,10 @@ msgstr "Use a verified work email to enable automatic joining. Personal email pr
 #: src/settings/general/e2ee-setup.tsx
 msgid "Use an existing key"
 msgstr "Use an existing key"
+
+#: src/session/components/note-input/transcript/retranscription-dialog.tsx
+msgid "Use default languages"
+msgstr "Use default languages"
 
 #: src/imports/screen.tsx
 msgid "Use files"

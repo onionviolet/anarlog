@@ -1,8 +1,8 @@
 import type { RefObject } from "react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
-import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
+import { RetranscriptionDialog } from "./retranscription-dialog";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
 import { LiveTranscriptInterruptedNotice } from "./screens/interrupted";
@@ -49,7 +49,7 @@ function TranscriptContent({
   const screen = useTranscriptScreen({ sessionId });
   const incompleteCapture = useIncompleteCapture(sessionId);
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
-  const regenerateTranscript = useRegenerateTranscript(sessionId);
+  const [retranscriptionOpen, setRetranscriptionOpen] = useState(false);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const handleStopTranscription = useCallback(() => {
     void stopTranscription(sessionId);
@@ -57,6 +57,12 @@ function TranscriptContent({
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
+      {retranscriptionOpen && (
+        <RetranscriptionDialog
+          sessionId={sessionId}
+          onClose={() => setRetranscriptionOpen(false)}
+        />
+      )}
       {incompleteCapture && (
         <div
           role="status"
@@ -99,7 +105,7 @@ function TranscriptContent({
           isBatching={false}
           hasAudio={screen.hasAudio}
           error={screen.error}
-          onRetranscribe={regenerateTranscript}
+          onRetranscribe={() => setRetranscriptionOpen(true)}
           onUploadAudio={uploadAudio}
           onUploadTranscript={uploadTranscript}
         />

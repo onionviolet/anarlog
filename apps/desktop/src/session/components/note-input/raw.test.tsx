@@ -16,7 +16,7 @@ const hoisted = vi.hoisted(() => ({
   sessionTitle: "Weekly sync",
   persistChange: vi.fn(() => Promise.resolve()),
   fileUpload: vi.fn(),
-  processAudioFile: vi.fn(),
+  queueAudioFiles: vi.fn().mockResolvedValue(undefined),
   showWindow: vi.fn(),
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
@@ -217,7 +217,7 @@ vi.mock("~/stt/useUploadFile", () => ({
     ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac", "qta"].some(
       (extension) => file.name.endsWith(`.${extension}`),
     ),
-  useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
+  useUploadFile: () => ({ queueAudioFiles: hoisted.queueAudioFiles }),
 }));
 
 describe("RawEditor", () => {
@@ -231,7 +231,7 @@ describe("RawEditor", () => {
     hoisted.sessionTitle = "Weekly sync";
     hoisted.persistChange = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
-    hoisted.processAudioFile = vi.fn();
+    hoisted.queueAudioFiles = vi.fn().mockResolvedValue(undefined);
     hoisted.meetingChatRecords = [];
     hoisted.eventParticipants = [];
     hoisted.userTemplates = [];
@@ -731,32 +731,45 @@ describe("RawEditor", () => {
       const untyped = new File(["audio"], "clip", { type: "" });
       const second = { name: "second.m4a", type: "" } as File;
       return [
-        ["a single audio file", [mp3], undefined, true, [mp3]],
+        ["a single audio file", [mp3], undefined, true, [[mp3], [undefined]]],
         [
           "audio with attachments",
           [mp3, image],
           undefined,
           { remainingFiles: [image] },
-          [mp3],
+          [[mp3], [undefined]],
         ],
         [
           "untyped audio identified by drag item MIME",
           [untyped, image],
           ["audio/mpeg", image.type],
           { remainingFiles: [image] },
-          [untyped, { allowUnknownAudio: true, contentType: "audio/mpeg" }],
+          [[untyped], [{ allowUnknownAudio: true, contentType: "audio/mpeg" }]],
+        ],
+        [
+          "typed and extensionless audio in one drop",
+          [mp3, image, untyped],
+          ["audio/mpeg", "image/png", "audio/mp4"],
+          { remainingFiles: [image] },
+          [
+            [mp3, untyped],
+            [undefined, { allowUnknownAudio: true, contentType: "audio/mp4" }],
+          ],
         ],
         [
           "multiple audio files",
           [mp3, second],
           undefined,
-          { remainingFiles: [second] },
-          [mp3],
+          true,
+          [
+            [mp3, second],
+            [undefined, undefined],
+          ],
         ],
       ] as const;
     })(),
   )(
-    "imports only the first audio file from an editor drop of %s",
+    "queues all audio files and preserves attachments from an editor drop of %s",
     (_label, files, itemTypes, expected, importArgs) => {
       render(<RawEditor sessionId="session-1" />);
 
@@ -775,8 +788,8 @@ describe("RawEditor", () => {
       expect(fileHandlerConfig.onDrop([...files], undefined, items)).toEqual(
         expected,
       );
-      expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
-      expect(hoisted.processAudioFile).toHaveBeenCalledWith(...importArgs);
+      expect(hoisted.queueAudioFiles).toHaveBeenCalledTimes(1);
+      expect(hoisted.queueAudioFiles).toHaveBeenCalledWith(...importArgs);
     },
   );
 
@@ -794,7 +807,7 @@ describe("RawEditor", () => {
     const dataTransfer = audioDataTransfer(file, "audio/quicktime");
 
     expect(fileHandlerConfig.onPaste([file], dataTransfer.items)).toBe(true);
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
+    expect(hoisted.queueAudioFiles).toHaveBeenCalledWith([file], [undefined]);
   });
 
   it("shows an audio upload overlay and intercepts audio drops", async () => {
@@ -814,7 +827,7 @@ describe("RawEditor", () => {
 
     fireEvent.drop(dropTarget!, { dataTransfer });
 
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
+    expect(hoisted.queueAudioFiles).toHaveBeenCalledWith([file], [undefined]);
     expect(
       screen.queryByText("Drop to upload and transcribe audio"),
     ).toBeNull();
@@ -833,7 +846,7 @@ describe("RawEditor", () => {
     fireEvent(dropTarget!, dropEvent);
 
     expect(dropEvent.defaultPrevented).toBe(false);
-    expect(hoisted.processAudioFile).not.toHaveBeenCalled();
+    expect(hoisted.queueAudioFiles).not.toHaveBeenCalled();
   });
 
   it("uses the drag item MIME when dropped audio has no MIME or extension", async () => {
@@ -852,10 +865,15 @@ describe("RawEditor", () => {
 
     fireEvent.drop(dropTarget!, { dataTransfer });
 
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file, {
-      allowUnknownAudio: true,
-      contentType: "audio/mpeg",
-    });
+    expect(hoisted.queueAudioFiles).toHaveBeenCalledWith(
+      [file],
+      [
+        {
+          allowUnknownAudio: true,
+          contentType: "audio/mpeg",
+        },
+      ],
+    );
   });
 });
 

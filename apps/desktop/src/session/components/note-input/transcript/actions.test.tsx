@@ -52,10 +52,22 @@ describe("useRegenerateTranscript", () => {
     const { result } = renderHook(() => useRegenerateTranscript("session-1"));
 
     await act(async () => {
-      await result.current();
+      await result.current({
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        languages: ["en"],
+        baseUrl: "soniqo://local",
+        apiKey: "",
+      });
     });
 
     expect(mocks.runBatch).toHaveBeenCalledWith("/tmp/session.wav", {
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+      languages: ["en"],
+      baseUrl: "soniqo://local",
+      apiKey: "",
+      allowFallback: false,
       promotion: { scope: "whole_session" },
     });
     expect(mocks.handleBatchFailed).toHaveBeenCalledWith(

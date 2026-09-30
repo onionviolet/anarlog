@@ -1468,6 +1468,38 @@ describe("useRunBatch", () => {
     },
   );
 
+  test("keeps the previous transcript and audio when cancelled while checking the replacement", async () => {
+    const controller = new AbortController();
+    let finishRead!: (value: never[]) => void;
+    getSessionTranscriptRecordsMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        }),
+    );
+    startTranscriptionMock.mockImplementationOnce(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "replacement", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    const run = result.current("/tmp/session.wav", {
+      signal: controller.signal,
+      promotion: { scope: "whole_session" },
+    });
+    const rejection = expect(run).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() =>
+      expect(getSessionTranscriptRecordsMock).toHaveBeenCalled(),
+    );
+    controller.abort();
+    finishRead([]);
+    await rejection;
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
   test("retains recovery audio when the batch has no current-capture words", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
@@ -1571,7 +1603,29 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("uses an explicit local batch target for speaker refinement", async () => {
+  test("refuses cloud fallback for an explicit local run even without a global connection", async () => {
+    useSTTConnectionMock.mockReturnValue({ conn: null });
+    isSupportedLanguagesBatchMock.mockResolvedValue(false);
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    await expect(
+      act(async () => {
+        await result.current("/tmp/session.wav", {
+          provider: "soniqo",
+          model: "soniqo-parakeet-batch",
+          baseUrl: "soniqo://local",
+          apiKey: "",
+          languages: ["ja"],
+          allowFallback: false,
+        });
+      }),
+    ).rejects.toThrow("not available for batch transcription");
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("uses an explicit local batch target without a configured global connection", async () => {
+    useSTTConnectionMock.mockReturnValue({ conn: null });
     startTranscriptionMock.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useRunBatch("session-1"));

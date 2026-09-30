@@ -5,9 +5,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
+import { useAudioImportQueue } from "./audio-import-queue";
 import { isAudioUploadFile, useUploadFile } from "./useUploadFile";
 
 const {
+  createSessionMock,
   audioSourceMetadataMock,
   audioImportDataMock,
   audioImportMock,
@@ -30,6 +32,7 @@ const {
   updateSessionTabStateMock,
   autoSummaryAfterRecording,
 } = vi.hoisted(() => ({
+  createSessionMock: vi.fn().mockResolvedValue("session-2"),
   audioSourceMetadataMock: vi.fn(),
   audioImportDataMock: vi.fn(),
   audioImportMock: vi.fn(),
@@ -92,6 +95,17 @@ vi.mock("./contexts", () => ({
     }),
 }));
 
+vi.mock("./useSTTConnection", () => ({
+  useSTTConnection: () => ({
+    conn: {
+      provider: "local_file",
+      model: "local-file",
+      baseUrl: "http://localhost:1234",
+      apiKey: "",
+    },
+  }),
+}));
+
 vi.mock("./useRunBatch", () => ({
   isStoppedTranscriptionError: vi.fn(() => false),
   useRunBatch: vi.fn(() => runBatchMock),
@@ -111,6 +125,7 @@ vi.mock("~/session/attachments", () => ({
 vi.mock("~/session/queries", () => ({
   useSession: useSessionMock,
   useUpdateSession: () => updateSessionMock,
+  createSession: createSessionMock,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -138,6 +153,8 @@ function createWrapper() {
 describe("useUploadFile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createSessionMock.mockResolvedValue("session-2");
+    useAudioImportQueue.setState({ jobs: [] });
     autoSummaryAfterRecording.value = true;
 
     audioImportDataMock.mockResolvedValue({
@@ -179,13 +196,147 @@ describe("useUploadFile", () => {
     );
   });
 
+  test("queues selected audio in separate sessions with a frozen provider", async () => {
+    selectFileMock.mockResolvedValue(["/tmp/one.wav", "/tmp/two.wav"]);
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    act(() => result.current.uploadAudio());
+    await waitFor(() =>
+      expect(useAudioImportQueue.getState().jobs).toHaveLength(2),
+    );
+    expect(
+      useAudioImportQueue
+        .getState()
+        .jobs.map((job) => [job.sessionId, job.source, job.options?.provider]),
+    ).toEqual([
+      ["session-2", "/tmp/one.wav", "local_file"],
+      ["session-2", "/tmp/two.wav", "local_file"],
+    ]);
+    expect(audioImportMock).not.toHaveBeenCalled();
+  });
+
+  test("mixed typed and extensionless imports retain their own MIME and both transcribe", async () => {
+    const typed = new File(["wav"], "known.wav", { type: "audio/wav" });
+    const untyped = new File(["mp4"], "unknown", { type: "" });
+    Object.defineProperty(typed, "arrayBuffer", {
+      value: async () => new Uint8Array([1]).buffer,
+    });
+    Object.defineProperty(untyped, "arrayBuffer", {
+      value: async () => new Uint8Array([2]).buffer,
+    });
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    await act(async () =>
+      result.current.queueAudioFiles(
+        [typed, untyped],
+        [undefined, { allowUnknownAudio: true, contentType: "audio/mp4" }],
+      ),
+    );
+    const jobs = useAudioImportQueue.getState().jobs;
+    expect(
+      jobs.map((job) => [
+        job.options?.allowUnknownAudio,
+        job.options?.contentType,
+      ]),
+    ).toEqual([
+      [undefined, undefined],
+      [true, "audio/mp4"],
+    ]);
+    for (const job of jobs) {
+      await act(async () =>
+        useAudioImportQueue.getState().run(job.id, async (signal) => {
+          await result.current.processAudioFile(job.source as File, {
+            ...job.options,
+            signal,
+          });
+        }),
+      );
+    }
+    expect(
+      audioImportDataMock.mock.calls.map((args) => [args[2], args[3]]),
+    ).toEqual([
+      ["known.wav", "audio/wav"],
+      ["unknown", "audio/mp4"],
+    ]);
+    expect(
+      useAudioImportQueue.getState().jobs.map((job) => job.status),
+    ).toEqual(["completed", "completed"]);
+    expect(runBatchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("account abandonment rejects a late file picker result and session creation completion", async () => {
+    let select!: (paths: string[]) => void;
+    selectFileMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          select = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    act(() => result.current.uploadAudio());
+    await waitFor(() => expect(select).toBeDefined());
+    useAudioImportQueue.getState().abandon();
+    select(["late.wav"]);
+    await act(async () => {});
+    expect(useAudioImportQueue.getState().jobs).toEqual([]);
+    let created!: (id: string) => void;
+    createSessionMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          created = resolve;
+        }),
+    );
+    const queued = result.current.queueAudioFiles(["first.wav", "second.wav"]);
+    await waitFor(() => expect(created).toBeDefined());
+    useAudioImportQueue.getState().abandon();
+    created("old-session");
+    await queued;
+    expect(useAudioImportQueue.getState().jobs).toEqual([]);
+    expect(createSessionMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("unsupported queued sources fail rather than claiming completed imports", async () => {
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const sources = [
+      "not-audio.txt",
+      new File(["text"], "not-audio.txt", { type: "text/plain" }),
+    ];
+    useAudioImportQueue.getState().enqueue(
+      sources.map((source) => ({
+        sessionId: "session-1",
+        name: "invalid",
+        source,
+      })),
+    );
+    for (const job of useAudioImportQueue.getState().jobs) {
+      await useAudioImportQueue.getState().run(job.id, async (signal) => {
+        await (typeof job.source === "string"
+          ? result.current.processFile(job.source, "audio", { signal })
+          : result.current.processAudioFile(job.source, { signal }));
+      });
+    }
+    expect(
+      useAudioImportQueue.getState().jobs.map((job) => [job.status, job.error]),
+    ).toEqual([
+      ["failed", "Unsupported audio file"],
+      ["failed", "Unsupported audio file"],
+    ]);
+    expect(runBatchMock).not.toHaveBeenCalled();
+  });
+
   test("infers the session date for an ordinary audio upload", async () => {
     const { result } = renderHook(() => useUploadFile("session-1"), {
       wrapper: createWrapper(),
     });
 
     act(() => {
-      result.current.uploadAudio();
+      result.current.processFile("/tmp/replacement.wav", "audio");
     });
 
     await waitFor(() => {
@@ -224,7 +375,7 @@ describe("useUploadFile", () => {
     expect(audioImportMock).not.toHaveBeenCalled();
     expect(runBatchMock).toHaveBeenCalledWith(
       "/vault/sessions/session-1/audio.wav",
-      { promotion: { scope: "whole_session" } },
+      { allowFallback: false, promotion: { scope: "whole_session" } },
     );
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
     expect(audioImportDataMock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -250,7 +401,9 @@ describe("useUploadFile", () => {
       arrayBuffer: vi.fn(),
     } as unknown as File;
 
-    act(() => result.current.processAudioFile(file));
+    act(() => {
+      void result.current.processAudioFile(file);
+    });
 
     await waitFor(() => {
       expect(handleBatchFailedMock).toHaveBeenCalledWith(
@@ -279,7 +432,9 @@ describe("useUploadFile", () => {
         .mockResolvedValue(new ArrayBuffer(4 * 1024 * 1024 + 1)),
     } as unknown as File;
 
-    act(() => result.current.processAudioFile(file));
+    act(() => {
+      void result.current.processAudioFile(file);
+    });
 
     await waitFor(() => {
       expect(handleBatchFailedMock).toHaveBeenCalledWith(
@@ -428,7 +583,9 @@ describe("useUploadFile", () => {
       value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
     });
 
-    act(() => result.current.processAudioFile(file));
+    act(() => {
+      void result.current.processAudioFile(file);
+    });
 
     await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
     expect(handleBatchFailedMock).not.toHaveBeenCalled();

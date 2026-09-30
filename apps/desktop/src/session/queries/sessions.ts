@@ -95,11 +95,12 @@ export function useSession(sessionId: string): SessionRecord | null {
 
 export function preloadSession(
   sessionId: string,
+  options?: { fresh?: boolean },
 ): Promise<SessionRecord | null> {
   if (!sessionId) return Promise.resolve(null);
 
   const existing = getPrefetchedSession(sessionId);
-  if (existing) return existing.promise;
+  if (existing && !options?.fresh) return existing.promise;
 
   let entry: PrefetchedSession;
   const promise = liveQueryClient

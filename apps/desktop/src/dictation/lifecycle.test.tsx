@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   unlisten: vi.fn(),
   listener: null as ((event: { payload: { type: string } }) => void) | null,
 }));
+vi.mock("~/ai/hooks", () => ({ useLanguageModel: () => null }));
 vi.mock("./panel", () => ({ waitForDictationPanel: vi.fn(async () => {}) }));
 vi.mock("@tauri-apps/api/core", () => ({
   Channel: class {

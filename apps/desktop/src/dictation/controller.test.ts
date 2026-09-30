@@ -2,8 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DictationController } from "./controller";
 
-function setup(handsFree = false) {
+function setup(
+  handsFree = false,
+  extras: {
+    transform?: (text: string) => Promise<string>;
+    onRawTranscript?: (text: string) => void;
+    onTransformError?: (error: unknown) => void;
+  } = {},
+) {
   const dependencies = {
+    ...extras,
     handsFree,
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn().mockResolvedValue("/tmp/dictation.wav"),
@@ -24,6 +32,54 @@ const settle = async (state: ReturnType<typeof setup>, phase = "idle") => {
 
 describe("system dictation", () => {
   afterEach(() => vi.useRealTimers());
+
+  it("keeps the original transcript recoverable while inserting cleaned dictation", async () => {
+    const onRawTranscript = vi.fn();
+    const state = setup(false, {
+      transform: async () => "Cleaned words.",
+      onRawTranscript,
+    });
+    state.controller.press();
+    state.controller.release();
+    await settle(state);
+    expect(onRawTranscript).toHaveBeenCalledWith("안녕하세요, world.");
+    expect(state.insert).toHaveBeenCalledWith("Cleaned words.");
+  });
+
+  it("inserts the original dictation when optional cleanup fails", async () => {
+    const onTransformError = vi.fn();
+    const state = setup(false, {
+      transform: async () => {
+        throw new Error("Provider offline");
+      },
+      onTransformError,
+    });
+    state.controller.press();
+    state.controller.release();
+    await settle(state);
+    expect(state.insert).toHaveBeenCalledWith("안녕하세요, world.");
+    expect(state.onError).not.toHaveBeenCalled();
+    expect(onTransformError).toHaveBeenCalled();
+  });
+
+  it("does not insert cleaned dictation after cancellation", async () => {
+    let resolve!: (text: string) => void;
+    const transform = vi.fn(
+      () =>
+        new Promise<string>((done) => {
+          resolve = done;
+        }),
+    );
+    const state = setup(false, { transform });
+    state.controller.press();
+    state.controller.release();
+    await vi.waitFor(() => expect(transform).toHaveBeenCalled());
+    const cancellation = state.controller.cancel();
+    resolve("Late cleaned text.");
+    await cancellation;
+    expect(state.insert).not.toHaveBeenCalled();
+    expect(state.discard).toHaveBeenCalledWith("/tmp/dictation.wav");
+  });
 
   it("finishes a shortcut released while the microphone is still starting", async () => {
     const state = setup();

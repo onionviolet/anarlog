@@ -9,6 +9,15 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  transcript: {
+    data: [] as Array<{
+      speaker: string | null;
+      text: string;
+      start_ms: number;
+      end_ms: number;
+    }>,
+    isLoading: false,
+  },
   settings: vi.fn(),
   downloadDir: vi.fn(),
   exportPdf: vi.fn(),
@@ -46,7 +55,7 @@ vi.mock("~/session/queries", () => ({
 }));
 vi.mock("~/session/utils", () => ({ getSessionEvent: () => null }));
 vi.mock("~/session/components/note-input/transcript/export-data", () => ({
-  useTranscriptExportSegments: () => ({ data: [], isLoading: false }),
+  useTranscriptExportSegments: () => mocks.transcript,
 }));
 vi.mock("~/stt/queries", () => ({ useSessionTranscriptMetadata: () => [] }));
 
@@ -71,6 +80,8 @@ function renderModal() {
 describe("ExportModal destination", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mocks.transcript.data = [];
+    mocks.transcript.isLoading = false;
     mocks.settings.mockResolvedValue({ values: {} });
     mocks.downloadDir.mockResolvedValue("/Users/test/Downloads");
     mocks.exportPdf.mockResolvedValue({ status: "ok", data: null });
@@ -103,6 +114,34 @@ describe("ExportModal destination", () => {
     expect(mocks.downloadDir).not.toHaveBeenCalled();
     expect(mocks.save).not.toHaveBeenCalled();
   });
+
+  it.each(["SRT", "VTT"])(
+    "exports %s with transcript-only content and requires a transcript",
+    async (format) => {
+      const { unmount } = renderModal();
+      fireEvent.click(screen.getByRole("radio", { name: format }));
+      expect(
+        screen.getByRole("button", { name: "Export" }).hasAttribute("disabled"),
+      ).toBe(true);
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      unmount();
+      mocks.transcript.data = [
+        { speaker: "Alex", text: "Ship it", start_ms: 1234, end_ms: 2345 },
+      ];
+      renderModal();
+      fireEvent.click(screen.getByRole("radio", { name: format }));
+      fireEvent.click(screen.getByRole("button", { name: "Export" }));
+      await waitFor(() =>
+        expect(mocks.onOpenChange).toHaveBeenCalledWith(false),
+      );
+      expect(mocks.writeTextFile).toHaveBeenCalledWith(
+        expect.stringMatching(new RegExp(`\\.${format.toLowerCase()}$`)),
+        format === "SRT"
+          ? "1\n00:00:01,234 --> 00:00:02,345\nAlex: Ship it\n"
+          : "WEBVTT\n\n1\n00:00:01.234 --> 00:00:02.345\n<v Alex>Ship it</v>\n",
+      );
+    },
+  );
 
   it.each([undefined, ""])(
     "uses Downloads when the preference is %s",

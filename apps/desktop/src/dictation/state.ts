@@ -7,6 +7,7 @@ export const useDictationStatus = create<{
   phase: DictationPhase;
   error: string | null;
   lastTranscript: string;
+  lastRawTranscript: string;
   ready: boolean;
   retry: number;
   owner: string | null;
@@ -25,6 +26,7 @@ export const useDictationStatus = create<{
   phase: "idle",
   error: null,
   lastTranscript: "",
+  lastRawTranscript: "",
   ready: false,
   retry: 0,
   owner: null,

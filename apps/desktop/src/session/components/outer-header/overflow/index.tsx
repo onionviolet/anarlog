@@ -37,7 +37,7 @@ import { ShowInFolder } from "./misc";
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import { isFloatingBarSupported } from "~/meeting-float/support";
-import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
+import { RetranscriptionDialog } from "~/session/components/note-input/transcript/retranscription-dialog";
 import {
   useCurrentNoteHasContent,
   useHasTranscript,
@@ -72,7 +72,7 @@ export function OverflowButton({
   );
   const { audioExists, audioExistsResolved } = useAudioPlayer();
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
-  const regenerateTranscript = useRegenerateTranscript(sessionId);
+  const [retranscriptionOpen, setRetranscriptionOpen] = useState(false);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const floatingBarSupported = isFloatingBarSupported();
@@ -117,7 +117,7 @@ export function OverflowButton({
   };
   const handleRetranscribe = () => {
     setOpen(false);
-    void regenerateTranscript();
+    setRetranscriptionOpen(true);
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
@@ -249,6 +249,12 @@ export function OverflowButton({
           </AppFloatingPanel>
         </DropdownMenuContent>
       </DropdownMenu>
+      {retranscriptionOpen && (
+        <RetranscriptionDialog
+          sessionId={sessionId}
+          onClose={() => setRetranscriptionOpen(false)}
+        />
+      )}
       {hasOpenedExportModal && (
         <ExportModal
           sessionId={sessionId}

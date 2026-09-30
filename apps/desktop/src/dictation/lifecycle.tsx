@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Channel } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
 import { useRef } from "react";
@@ -11,10 +12,12 @@ import { commands as shortcuts, events } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
 
+import { cleanDictation } from "./cleanup";
 import { DictationController } from "./controller";
 import { waitForDictationPanel } from "./panel";
 import { useDictationStatus } from "./state";
 
+import { useLanguageModel } from "~/ai/hooks";
 import { useAuth } from "~/auth";
 import { useSettingsReady } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -60,7 +63,7 @@ export function DictationLifecycle() {
 
 function TranscriptRetention({ children }: { children: React.ReactNode }) {
   useMountEffect(() => () => {
-    useDictationStatus.setState({ lastTranscript: "" });
+    useDictationStatus.setState({ lastTranscript: "", lastRawTranscript: "" });
   });
   return children;
 }
@@ -81,6 +84,8 @@ function ActiveDictation({
 }) {
   const id = useRef(`system-dictation-${crypto.randomUUID()}`).current;
   const runBatch = useRunBatch(id);
+  const cleanupEnabled = useConfigValue("dictation_cleanup");
+  const cleanupModel = useLanguageModel("enhance");
   const stopTranscription = useListener((state) => state.stopTranscription);
   const microphone = useConfigValue("microphone_device");
   const livePreview = useConfigValue("dictation_live_preview");
@@ -90,6 +95,8 @@ function ActiveDictation({
   const auth = useAuth();
   const current = useRef({
     runBatch,
+    cleanupEnabled,
+    cleanupModel,
     microphone,
     livePreview,
     languages,
@@ -100,6 +107,8 @@ function ActiveDictation({
   });
   current.current = {
     runBatch,
+    cleanupEnabled,
+    cleanupModel,
     microphone,
     livePreview,
     languages,
@@ -259,6 +268,23 @@ function ActiveDictation({
           },
         });
         return text;
+      },
+      transform: async (text) => {
+        if (!current.current.cleanupEnabled) return text;
+        return cleanDictation(text, current.current.cleanupModel, abort.signal);
+      },
+      onRawTranscript: (lastRawTranscript) => {
+        if (!disposed)
+          useDictationStatus.setState({
+            lastRawTranscript,
+            lastTranscript: lastRawTranscript,
+          });
+      },
+      onTransformError: () => {
+        if (!disposed)
+          toast.warning(
+            t`Dictation cleanup failed. Using the original transcript.`,
+          );
       },
       insert: async (text) => {
         if (!disposed) unwrap(await dictation.insertText(target, text));

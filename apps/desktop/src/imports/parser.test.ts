@@ -41,7 +41,7 @@ describe("meeting export parser", () => {
       path: "/tmp/meeting.vtt",
       name: "meeting.vtt",
       content:
-        "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n<v Priya>Hello team\n\n00:00:03.000 --> 00:00:05.000\nSam: Hi Priya",
+        "\uFEFFWEBVTT\n\nNOTE metadata\n00:00:00.000 --> 00:00:01.000\nNot a cue\n\nSTYLE\n::cue { color: red; }\n\nREGION\nid:main\n\n00:00:01.000 --> 00:00:03.000\n<v Priya>Hello team\n\n00:00:03.000 --> 00:00:05.000\nSam: Hi Priya",
     });
 
     expect(meeting?.transcript).toEqual([

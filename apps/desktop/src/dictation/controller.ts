@@ -14,6 +14,9 @@ export class DictationController {
       cancel: () => Promise<void>;
       transcribe: (path: string) => Promise<string>;
       insert: (text: string) => Promise<void>;
+      transform?: (text: string) => Promise<string>;
+      onRawTranscript?: (text: string) => void;
+      onTransformError?: (error: unknown) => void;
       discard: (path: string) => Promise<void>;
       onPhase: (phase: DictationPhase) => void;
       onTranscript: (text: string) => void;
@@ -89,9 +92,21 @@ export class DictationController {
     try {
       path = await this.dependencies.stop();
       if (this.cancelled) return;
-      const text = (await this.dependencies.transcribe(path)).trim();
+      let text = (await this.dependencies.transcribe(path)).trim();
       if (this.cancelled) return;
       if (!text) throw new Error("No speech detected. Please try again.");
+      this.dependencies.onRawTranscript?.(text);
+      if (this.dependencies.transform) {
+        try {
+          const transformed = (await this.dependencies.transform(text)).trim();
+          if (!transformed)
+            throw new Error("Dictation cleanup returned no text");
+          text = transformed;
+        } catch (error) {
+          if (!this.cancelled) this.dependencies.onTransformError?.(error);
+        }
+      }
+      if (this.cancelled) return;
       this.dependencies.onTranscript(text);
       await this.dependencies.insert(text);
     } catch (error) {

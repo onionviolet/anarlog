@@ -317,6 +317,9 @@ const EditableSegmentText = memo(function EditableSegmentText({
         data-transcript-edit-word-start-ms={JSON.stringify(
           segment.words.map((word) => word.start_ms),
         )}
+        data-transcript-edit-word-end-ms={JSON.stringify(
+          segment.words.map((word) => word.end_ms),
+        )}
         data-transcript-edit-word-texts={JSON.stringify(
           segment.words.map(getWordDisplayText),
         )}

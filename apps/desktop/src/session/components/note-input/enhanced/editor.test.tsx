@@ -8,7 +8,7 @@ const hoisted = vi.hoisted(() => ({
   sessionTitle: "Weekly sync",
   persistContent: vi.fn(() => Promise.resolve()),
   fileUpload: vi.fn(),
-  processAudioFile: vi.fn(),
+  queueAudioFiles: vi.fn().mockResolvedValue(undefined),
   showWindow: vi.fn(),
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
@@ -80,7 +80,7 @@ vi.mock("~/stt/useUploadFile", () => ({
     ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"].some(
       (extension) => file.name.endsWith(`.${extension}`),
     ),
-  useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
+  useUploadFile: () => ({ queueAudioFiles: hoisted.queueAudioFiles }),
 }));
 
 vi.mock("~/session-sharing/comments", () => ({
@@ -123,7 +123,7 @@ describe("EnhancedEditor", () => {
     hoisted.sessionTitle = "Weekly sync";
     hoisted.persistContent = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
-    hoisted.processAudioFile = vi.fn();
+    hoisted.queueAudioFiles = vi.fn().mockResolvedValue(undefined);
     hoisted.commentDraft = null;
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
@@ -444,6 +444,6 @@ describe("EnhancedEditor", () => {
     const file = { name: "clip.mp3", type: "audio/mpeg" } as File;
 
     expect(fileHandlerConfig.onDrop([file])).toBe(true);
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
+    expect(hoisted.queueAudioFiles).toHaveBeenCalledWith([file], [undefined]);
   });
 });

@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { CheckCircle, PencilSimple } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
@@ -11,12 +11,12 @@ import { IconHeaderView, copyTextToClipboard } from "./header-shared";
 import { TranscriptAudioIcon } from "./header-transcript-icon";
 
 import * as AudioPlayer from "~/audio-player";
-import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   buildTranscriptExportSegments,
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
+import { RetranscriptionDialog } from "~/session/components/note-input/transcript/retranscription-dialog";
 import { useHasTranscript } from "~/session/components/shared";
 import {
   type MenuItemDef,
@@ -198,7 +198,7 @@ function HeaderViewTranscriptActive({
     muted: boolean;
   };
 }) {
-  const regenerate = useRegenerateTranscript(sessionId);
+  const [retranscriptionOpen, setRetranscriptionOpen] = useState(false);
   const startListening = useStartListeningWithBatchOverride(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
   const { request: transcriptExportRequest } =
@@ -280,7 +280,7 @@ function HeaderViewTranscriptActive({
         id: `regenerate-transcript-${sessionId}`,
         text: "Re-transcribe",
         action: () => {
-          void regenerate();
+          setRetranscriptionOpen(true);
         },
       });
     }
@@ -303,29 +303,36 @@ function HeaderViewTranscriptActive({
     handleDeleteRecording,
     handleResumeListening,
     isDeletingRecording,
-    regenerate,
     sessionMode,
     sessionId,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 
   return (
-    <HeaderViewTranscriptButton
-      isActive={isActive}
-      isTranscribing={isTranscribing}
-      onClick={handleClick}
-      onContextMenu={showContextMenu}
-      live={live}
-      suffixIcon={
-        canEdit ? (
-          editMode ? (
-            <CheckCircle aria-hidden className="size-3.5" />
-          ) : (
-            <PencilSimple aria-hidden className="size-3.5" />
-          )
-        ) : undefined
-      }
-      pressed={canEdit ? editMode : undefined}
-    />
+    <>
+      {retranscriptionOpen && (
+        <RetranscriptionDialog
+          sessionId={sessionId}
+          onClose={() => setRetranscriptionOpen(false)}
+        />
+      )}
+      <HeaderViewTranscriptButton
+        isActive={isActive}
+        isTranscribing={isTranscribing}
+        onClick={handleClick}
+        onContextMenu={showContextMenu}
+        live={live}
+        suffixIcon={
+          canEdit ? (
+            editMode ? (
+              <CheckCircle aria-hidden className="size-3.5" />
+            ) : (
+              <PencilSimple aria-hidden className="size-3.5" />
+            )
+          ) : undefined
+        }
+        pressed={canEdit ? editMode : undefined}
+      />
+    </>
   );
 }

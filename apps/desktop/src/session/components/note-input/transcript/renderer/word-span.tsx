@@ -39,6 +39,7 @@ export const WordSpan = memo(function WordSpan(props: WordSpanProps) {
       className={className}
       data-transcript-word-id={props.word.id}
       data-transcript-word-start-ms={props.word.start_ms}
+      data-transcript-word-end-ms={props.word.end_ms}
     >
       {content}
     </span>

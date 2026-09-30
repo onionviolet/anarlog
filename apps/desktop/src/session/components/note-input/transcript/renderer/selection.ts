@@ -11,6 +11,7 @@ export type TranscriptWordSelection = {
   sessionId?: string;
   text: string;
   startMs: number;
+  endMs?: number;
   groups: TranscriptWordSelectionGroup[];
 };
 
@@ -25,6 +26,7 @@ export function getTranscriptSelectionFromRange(
   const groups = new Map<string, TranscriptWordSelectionGroup>();
   let sessionId: string | undefined;
   let startMs: number | undefined;
+  let endMs: number | undefined;
 
   for (const wordElement of container.querySelectorAll<HTMLElement>(
     "[data-transcript-word-id]",
@@ -48,6 +50,14 @@ export function getTranscriptSelectionFromRange(
     addWordToSelection(groups, transcriptId, segmentKey, wordId);
     sessionId ??= segmentElement?.dataset.sessionId || undefined;
     startMs ??= readWordStartMs(wordElement, segmentElement);
+    const wordEnd = wordElement.dataset.transcriptWordEndMs;
+    if (wordEnd !== undefined && Number.isFinite(Number(wordEnd))) {
+      endMs = Math.max(
+        endMs ?? 0,
+        Number(wordEnd) +
+          Number(segmentElement?.dataset.transcriptOffsetMs ?? 0),
+      );
+    }
   }
 
   for (const editorElement of container.querySelectorAll<HTMLElement>(
@@ -77,6 +87,9 @@ export function getTranscriptSelectionFromRange(
     const wordStartMs = parseNumberArray(
       editorElement.dataset.transcriptEditWordStartMs,
     );
+    const wordEndMs = parseNumberArray(
+      editorElement.dataset.transcriptEditWordEndMs,
+    );
     const selectedIndices = getSelectedEditableWordIndices(
       range,
       editorElement,
@@ -89,6 +102,13 @@ export function getTranscriptSelectionFromRange(
       }
       addWordToSelection(groups, transcriptId, segmentKey, wordId);
       sessionId ??= segmentElement?.dataset.sessionId || undefined;
+      if (wordEndMs[index] !== undefined) {
+        endMs = Math.max(
+          endMs ?? 0,
+          wordEndMs[index] +
+            Number(segmentElement?.dataset.transcriptOffsetMs ?? 0),
+        );
+      }
       startMs ??=
         (wordStartMs[index] ?? 0) +
         Number(segmentElement?.dataset.transcriptOffsetMs ?? 0);
@@ -103,6 +123,7 @@ export function getTranscriptSelectionFromRange(
     sessionId,
     text: range.toString().trim(),
     startMs: startMs ?? 0,
+    ...(endMs !== undefined ? { endMs } : {}),
     groups: [...groups.values()],
   };
 }

@@ -15,6 +15,7 @@ import WaveSurfer from "wavesurfer.js";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { configureCenteredPlayback } from "./playback";
+import { SelectionLoop } from "./selection-loop";
 import { loadWaveform } from "./waveform";
 
 import { useFeatureAccess } from "~/auth/local-entitlements";
@@ -83,6 +84,9 @@ interface AudioPlayerContextValue {
   resume: () => void;
   stop: () => void;
   seek: (sec: number) => void;
+  loopSelection: (start: number, end: number) => void;
+  clearLoop: () => void;
+  looping: boolean;
   audioExists: boolean;
   audioExistsResolved: boolean;
   playbackRate: number;
@@ -144,6 +148,12 @@ export function AudioPlayerProvider({
   const [state, setState] = useState<AudioPlayerState>("stopped");
   const [playbackRate, setPlaybackRateState] = useState(1);
   const timeStoreRef = useRef(new TimeStore());
+  const loopRef = useRef(new SelectionLoop());
+  const [looping, setLooping] = useState(false);
+  const clearLoop = useCallback(() => {
+    loopRef.current.clear();
+    setLooping(false);
+  }, []);
   const stopRequestedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { audioExists: audioExistsValue, audioExistsResolved } =
@@ -154,6 +164,7 @@ export function AudioPlayerProvider({
   }, []);
 
   useEffect(() => {
+    clearLoop();
     if (!container || !url) {
       return;
     }
@@ -228,16 +239,31 @@ export function AudioPlayerProvider({
     };
 
     const handleFinish = () => {
+      const restart = loopRef.current.restartAt(ws.getDuration());
+      if (restart !== null) {
+        ws.setTime(restart);
+        void ws.play().catch(() => clearLoop());
+        return;
+      }
       stopRequestedRef.current = false;
       syncCurrentTime(ws.getDuration(), true);
       setState("stopped");
     };
 
     const handleTimeupdate = (currentTime: number) => {
+      const restart = ws.isPlaying()
+        ? loopRef.current.restartAt(currentTime)
+        : null;
+      if (restart !== null) {
+        ws.setTime(restart);
+        syncCurrentTime(restart, true);
+        return;
+      }
       syncCurrentTime(currentTime);
     };
 
     const handleInteraction = (currentTime: number) => {
+      clearLoop();
       syncCurrentTime(currentTime, true);
     };
 
@@ -272,6 +298,7 @@ export function AudioPlayerProvider({
 
     return () => {
       loadController.abort();
+      loopRef.current.clear();
       stopRequestedRef.current = false;
       if (audioContextRef.current === audioContext) {
         audioContextRef.current = null;
@@ -287,7 +314,7 @@ export function AudioPlayerProvider({
       setWavesurfer(null);
       void audioContext?.close();
     };
-  }, [container, sessionId, url]);
+  }, [clearLoop, container, sessionId, url]);
 
   const play = useCallback(() => {
     if (!wavesurfer) {
@@ -303,20 +330,22 @@ export function AudioPlayerProvider({
             return wavesurfer.play();
           }
         })
-        .catch(() => {});
+        .catch(clearLoop);
       return;
     }
 
-    void wavesurfer.play();
-  }, [wavesurfer]);
+    void wavesurfer.play().catch(clearLoop);
+  }, [clearLoop, wavesurfer]);
 
   const pause = useCallback(() => {
+    clearLoop();
     if (wavesurfer) {
       wavesurfer.pause();
     }
-  }, [wavesurfer]);
+  }, [clearLoop, wavesurfer]);
 
   const stop = useCallback(() => {
+    clearLoop();
     if (wavesurfer) {
       const wasPlaying = wavesurfer.isPlaying();
       stopRequestedRef.current = wasPlaying;
@@ -326,7 +355,21 @@ export function AudioPlayerProvider({
         setState("stopped");
       }
     }
-  }, [wavesurfer]);
+  }, [clearLoop, wavesurfer]);
+
+  const loopSelection = useCallback(
+    (start: number, end: number) => {
+      if (!wavesurfer || !audioExistsValue) return;
+      if (!loopRef.current.select(start, end, wavesurfer.getDuration())) {
+        setLooping(false);
+        return;
+      }
+      setLooping(true);
+      wavesurfer.setTime(Math.max(0, start));
+      play();
+    },
+    [audioExistsValue, play, wavesurfer],
+  );
 
   const markAudioDeleted = useCallback(() => {
     timeStoreRef.current.reset();
@@ -365,11 +408,12 @@ export function AudioPlayerProvider({
 
   const seek = useCallback(
     (timeInSeconds: number) => {
+      clearLoop();
       if (wavesurfer) {
         wavesurfer.setTime(timeInSeconds);
       }
     },
-    [wavesurfer],
+    [clearLoop, wavesurfer],
   );
 
   const setPlaybackRate = useCallback(
@@ -422,6 +466,9 @@ export function AudioPlayerProvider({
       resume: play,
       stop,
       seek,
+      loopSelection,
+      clearLoop,
+      looping,
       audioExists: audioExistsValue,
       audioExistsResolved,
       playbackRate,
@@ -437,6 +484,9 @@ export function AudioPlayerProvider({
       pause,
       stop,
       seek,
+      loopSelection,
+      clearLoop,
+      looping,
       audioExistsValue,
       audioExistsResolved,
       playbackRate,

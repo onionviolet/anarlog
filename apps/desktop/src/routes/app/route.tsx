@@ -12,6 +12,7 @@ import {
 
 import { useDeeplinkHandler } from "~/shared/hooks/useDeeplinkHandler";
 import { useRoundedWindowFrame } from "~/shared/hooks/useWindowControlsGutter";
+import { AudioImportQueueView } from "~/stt/audio-import-queue-view";
 import { ListenerProvider } from "~/stt/contexts";
 
 export const Route = createFileRoute("/app")({
@@ -50,6 +51,7 @@ function Component() {
     <TooltipProvider>
       <ListenerProvider store={listenerStore}>
         <Outlet />
+        <AudioImportQueueView />
       </ListenerProvider>
     </TooltipProvider>
   );

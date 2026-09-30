@@ -1,4 +1,9 @@
 export const SETTING_DEFINITIONS = {
+  dictation_cleanup: {
+    type: "boolean",
+    path: ["dictation", "cleanup"],
+    default: false as boolean,
+  },
   dictation_live_preview: {
     type: "boolean",
     path: ["dictation", "live_preview"],

@@ -17,28 +17,38 @@ import { isAudioUploadFile, useUploadFile } from "~/stt/useUploadFile";
 
 export function useNoteFileHandlerConfig(sessionId: string) {
   const onFileUpload = useFileUpload(sessionId);
-  const { processAudioFile } = useUploadFile(sessionId);
+  const { queueAudioFiles } = useUploadFile(sessionId);
   const [isAudioDragActive, setIsAudioDragActive] = useState(false);
   const audioDragDepthRef = useRef(0);
 
   const processAudioDrop = useCallback(
     (files: File[], items?: DataTransferItemList) => {
-      const audioDrop = getAudioDrop(files, items);
-      if (!audioDrop) {
-        return null;
-      }
-
-      if (audioDrop.allowUnknownAudio) {
-        processAudioFile(audioDrop.audioFile, {
-          allowUnknownAudio: true,
-          contentType: audioDrop.contentType,
-        });
-      } else {
-        processAudioFile(audioDrop.audioFile);
-      }
-      return { remainingFiles: audioDrop.remainingFiles };
+      const fileItems = Array.from(items ?? []).filter(
+        (item) => item.kind === "file",
+      );
+      const audioEntries = files.flatMap((file, index) =>
+        isAudioDropFile(file, fileItems[index])
+          ? [{ file, item: fileItems[index] }]
+          : [],
+      );
+      if (audioEntries.length === 0) return null;
+      const audioFiles = audioEntries.map(({ file }) => file);
+      void queueAudioFiles(
+        audioFiles,
+        audioEntries.map(({ file, item }) =>
+          !isAudioUploadFile(file)
+            ? {
+                allowUnknownAudio: true,
+                contentType: file.type || item?.type || undefined,
+              }
+            : undefined,
+        ),
+      ).catch(handleAudioQueueError);
+      return {
+        remainingFiles: files.filter((file) => !audioFiles.includes(file)),
+      };
     },
-    [processAudioFile],
+    [queueAudioFiles],
   );
 
   const handleDrop = useCallback(
@@ -81,7 +91,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
 
   const handleDragEnterCapture = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (!hasSingleAudioUploadDrag(event.dataTransfer)) {
+      if (!hasAudioUploadDrag(event.dataTransfer)) {
         return;
       }
 
@@ -99,7 +109,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     (event: DragEvent<HTMLDivElement>) => {
       if (
         audioDragDepthRef.current === 0 &&
-        !hasSingleAudioUploadDrag(event.dataTransfer)
+        !hasAudioUploadDrag(event.dataTransfer)
       ) {
         return;
       }
@@ -113,7 +123,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     (event: DragEvent<HTMLDivElement>) => {
       if (
         audioDragDepthRef.current === 0 &&
-        !hasSingleAudioUploadDrag(event.dataTransfer)
+        !hasAudioUploadDrag(event.dataTransfer)
       ) {
         return;
       }
@@ -131,7 +141,7 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   const handleDropCapture = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       const files = Array.from(event.dataTransfer.files ?? []);
-      if (files.length !== 1) {
+      if (files.length === 0) {
         return;
       }
 
@@ -140,24 +150,24 @@ export function useNoteFileHandlerConfig(sessionId: string) {
         return;
       }
 
-      if (audioDrop.remainingFiles.length > 0) {
+      if (
+        files.some(
+          (file, index) =>
+            !isAudioDropFile(
+              file,
+              Array.from(event.dataTransfer.items ?? [])[index],
+            ),
+        )
+      ) {
         resetAudioDrag();
         return;
       }
-
-      if (audioDrop.allowUnknownAudio) {
-        processAudioFile(audioDrop.audioFile, {
-          allowUnknownAudio: true,
-          contentType: audioDrop.contentType,
-        });
-      } else {
-        processAudioFile(audioDrop.audioFile);
-      }
+      processAudioDrop(files, event.dataTransfer.items);
       event.preventDefault();
       event.stopPropagation();
       resetAudioDrag();
     },
-    [processAudioFile, resetAudioDrag],
+    [processAudioDrop, resetAudioDrag],
   );
 
   const fileHandlerConfig = useMemo<FileHandlerConfig>(
@@ -197,28 +207,25 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   );
 }
 
-function hasSingleAudioUploadDrag(dataTransfer: DataTransfer) {
+function hasAudioUploadDrag(dataTransfer: DataTransfer) {
   const items = Array.from(dataTransfer.items ?? []);
   if (items.length > 0) {
-    if (items.length !== 1) {
-      return false;
-    }
+    return items.every((item) => {
+      if (item.kind !== "file") {
+        return false;
+      }
 
-    const [item] = items;
-    if (item.kind !== "file") {
-      return false;
-    }
+      if (item.type.startsWith("audio/")) {
+        return true;
+      }
 
-    if (item.type.startsWith("audio/")) {
-      return true;
-    }
-
-    const file = item.getAsFile();
-    return file ? isAudioUploadFile(file) : false;
+      const file = item.getAsFile();
+      return file ? isAudioUploadFile(file) : false;
+    });
   }
 
   const files = Array.from(dataTransfer.files ?? []);
-  return files.length === 1 && isAudioUploadFile(files[0]);
+  return files.length > 0 && files.every(isAudioUploadFile);
 }
 
 function getAudioDrop(files: File[], items?: DataTransferItemList) {
@@ -263,4 +270,10 @@ async function bringCurrentWindowToFront() {
   } catch (error) {
     console.error("Failed to focus window for audio drop", error);
   }
+}
+
+function handleAudioQueueError(error: unknown) {
+  toast.error(
+    error instanceof Error ? error.message : "Could not queue audio files.",
+  );
 }

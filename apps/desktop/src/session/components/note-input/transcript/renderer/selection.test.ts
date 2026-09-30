@@ -18,6 +18,18 @@ afterEach(() => {
 });
 
 describe("transcript word selection", () => {
+  it("keeps the selected word end time and recording offset for playback loops", () => {
+    const { container, words } = createReadSegment();
+    words[0].dataset.transcriptWordEndMs = "150";
+    words[1].dataset.transcriptWordEndMs = "400";
+    const range = document.createRange();
+    range.setStartBefore(words[0]);
+    range.setEndAfter(words[1]);
+    const selection = getTranscriptSelectionFromRange(range, container);
+    expect(selection?.startMs).toBe(1100);
+    expect(selection?.endMs).toBe(1400);
+  });
+
   it("changes from the anchor to the segment end, preserving earlier words", () => {
     const { container, words } = createReadSegment();
     const fullRange = document.createRange();

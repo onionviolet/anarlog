@@ -23,6 +23,7 @@ import { cn } from "@anlg/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
 
+import { formatCaptionExport } from "~/session/components/note-input/transcript/caption-export";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import {
   useEnhancedNote,
@@ -35,7 +36,7 @@ import { isAppStoreBuild } from "~/shared/app-store";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useSessionTranscriptMetadata } from "~/stt/queries";
 
-type FileFormat = "pdf" | "txt" | "md" | "org";
+type FileFormat = "pdf" | "txt" | "md" | "org" | "srt" | "vtt";
 
 function markdownToText(content: string): string {
   return content
@@ -100,6 +101,7 @@ export function ExportModal({
   const { data: transcriptItems, isLoading: isTranscriptLoading } =
     useTranscriptExportSegments(sessionId);
 
+  const isCaptionFormat = format === "srt" || format === "vtt";
   const transcripts = useSessionTranscriptMetadata(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
@@ -374,11 +376,13 @@ export function ExportModal({
         }
       } else {
         const textContent =
-          format === "md"
-            ? buildMdContent()
-            : format === "org"
-              ? buildOrgContent()
-              : buildTxtContent();
+          format === "srt" || format === "vtt"
+            ? formatCaptionExport(transcriptItems, format)
+            : format === "md"
+              ? buildMdContent()
+              : format === "org"
+                ? buildOrgContent()
+                : buildTxtContent();
         const result = await fs2Commands.writeTextFile(path, textContent);
         if (result.status === "error") {
           throw new Error(result.error);
@@ -392,8 +396,8 @@ export function ExportModal({
       void analyticsCommands.event({
         event: "session_exported",
         format,
-        include_summary: includeSummary,
-        include_transcript: includeTranscript,
+        include_summary: !isCaptionFormat && includeSummary,
+        include_transcript: isCaptionFormat || includeTranscript,
       });
       void openerCommands.revealItemInDir(path);
       onOpenChange(false);
@@ -401,9 +405,11 @@ export function ExportModal({
     onError: console.error,
   });
 
-  const hasAnyContentSelected =
-    includeMemo || includeSummary || includeTranscript;
-  const isTranscriptPending = includeTranscript && isTranscriptLoading;
+  const hasAnyContentSelected = isCaptionFormat
+    ? transcriptItems.length > 0
+    : includeMemo || includeSummary || includeTranscript;
+  const isTranscriptPending =
+    (isCaptionFormat || includeTranscript) && isTranscriptLoading;
   if (!open) {
     return null;
   }
@@ -438,66 +444,81 @@ export function ExportModal({
               <span className="text-sm font-medium">
                 <Trans>File format</Trans>
               </span>
-              <div className="flex justify-center gap-4">
-                {(["pdf", "txt", "md", "org"] as const).map((f) => (
-                  <label
-                    key={f}
-                    className="flex cursor-pointer items-center gap-1.5 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      name="export-format"
-                      checked={format === f}
-                      onChange={() => setFormat(f)}
-                      className="accent-primary"
-                    />
-                    {f === "md"
-                      ? "Markdown"
-                      : f === "org"
-                        ? "Org"
-                        : f.toUpperCase()}
-                  </label>
-                ))}
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                {(["pdf", "txt", "md", "org", "srt", "vtt"] as const).map(
+                  (f) => (
+                    <label
+                      key={f}
+                      className="flex cursor-pointer items-center gap-1.5 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="export-format"
+                        checked={format === f}
+                        onChange={() => setFormat(f)}
+                        className="accent-primary"
+                      />
+                      {f === "md"
+                        ? "Markdown"
+                        : f === "org"
+                          ? "Org"
+                          : f.toUpperCase()}
+                    </label>
+                  ),
+                )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">
-                <Trans>Include</Trans>
-              </span>
-              <div className="flex justify-center gap-4">
-                {(
-                  [
-                    ["memo", <Trans>Memo</Trans>, includeMemo, setIncludeMemo],
+            {isCaptionFormat ? (
+              <p className="text-muted-foreground text-xs">
+                <Trans>
+                  Subtitles include the transcript and speaker labels only.
+                </Trans>
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">
+                  <Trans>Include</Trans>
+                </span>
+                <div className="flex justify-center gap-4">
+                  {(
                     [
-                      "summary",
-                      <Trans>Summary</Trans>,
-                      includeSummary,
-                      setIncludeSummary,
-                    ],
-                    [
-                      "transcript",
-                      <Trans>Transcript</Trans>,
-                      includeTranscript,
-                      setIncludeTranscript,
-                    ],
-                  ] as const
-                ).map(([id, label, checked, setter]) => (
-                  <label
-                    key={id}
-                    className="flex cursor-pointer items-center gap-1.5 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => setter(e.target.checked)}
-                      className="accent-primary"
-                    />
-                    {label}
-                  </label>
-                ))}
+                      [
+                        "memo",
+                        <Trans>Memo</Trans>,
+                        includeMemo,
+                        setIncludeMemo,
+                      ],
+                      [
+                        "summary",
+                        <Trans>Summary</Trans>,
+                        includeSummary,
+                        setIncludeSummary,
+                      ],
+                      [
+                        "transcript",
+                        <Trans>Transcript</Trans>,
+                        includeTranscript,
+                        setIncludeTranscript,
+                      ],
+                    ] as const
+                  ).map(([id, label, checked, setter]) => (
+                    <label
+                      key={id}
+                      className="flex cursor-pointer items-center gap-1.5 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => setter(e.target.checked)}
+                        className="accent-primary"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {error && (

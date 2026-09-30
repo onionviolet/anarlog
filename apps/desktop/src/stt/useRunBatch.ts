@@ -56,7 +56,8 @@ import {
 } from "~/stt/render-transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
-type RunOptions = {
+export type RunOptions = {
+  allowFallback?: boolean;
   signal?: AbortSignal;
   recovery?: {
     persist: (words: WordWithId[], hints: SpeakerHintWithId[]) => Promise<void>;
@@ -735,12 +736,14 @@ export const useRunBatch = (sessionId: string) => {
           ? getBatchProvider(selectedProviderId, selectedModel)
           : null;
       const selectedTarget =
-        conn && selectedModel && selectedProvider
+        (conn || options?.baseUrl !== undefined) &&
+        selectedModel &&
+        selectedProvider
           ? {
               provider: selectedProvider,
               model: selectedModel,
-              baseUrl: options?.baseUrl ?? conn.baseUrl,
-              apiKey: options?.apiKey ?? conn.apiKey,
+              baseUrl: options?.baseUrl ?? conn?.baseUrl ?? "",
+              apiKey: options?.apiKey ?? conn?.apiKey ?? "",
               label: selectedModel,
             }
           : null;
@@ -778,7 +781,9 @@ export const useRunBatch = (sessionId: string) => {
       });
       const shouldUseSelectedTarget =
         selectedTargetSupported ||
-        (fallbackTarget && sameBatchTarget(selectedTarget, fallbackTarget));
+        (options?.allowFallback !== false &&
+          fallbackTarget &&
+          sameBatchTarget(selectedTarget, fallbackTarget));
       let target = options?.resume
         ? {
             provider: options.resume.provider,
@@ -789,7 +794,9 @@ export const useRunBatch = (sessionId: string) => {
           }
         : shouldUseSelectedTarget
           ? (selectedTarget ?? fallbackTarget)
-          : fallbackTarget;
+          : options?.allowFallback === false
+            ? null
+            : fallbackTarget;
 
       if (!target) {
         throw new Error(
@@ -1042,8 +1049,9 @@ export const useRunBatch = (sessionId: string) => {
                         promoted.hints,
                       )
                     : promoted.hints;
-                  await persistTranscriptWrite(() =>
-                    createTranscript({
+                  await persistTranscriptWrite(() => {
+                    options?.signal?.throwIfAborted();
+                    return createTranscript({
                       id: completedTranscriptId,
                       sessionId,
                       ownerUserId: session?.user_id ?? "",
@@ -1062,8 +1070,8 @@ export const useRunBatch = (sessionId: string) => {
                       speakerHints,
                       replaceSession: promoted.replaceSession,
                       replaceTranscriptId: promoted.replaceTranscriptId,
-                    }),
-                  );
+                    });
+                  });
                   await maybeExtractVoiceprintCandidates({
                     enabled: rememberSpeakers,
                     sessionId,
@@ -1091,6 +1099,7 @@ export const useRunBatch = (sessionId: string) => {
               await deleteProcessedAudioForRetention(audioRetention, sessionId);
             }
           } catch (error) {
+            options?.signal?.throwIfAborted();
             if (
               error instanceof BatchResponseProcessingError ||
               (error instanceof Error &&

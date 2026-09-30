@@ -11,17 +11,19 @@ import {
 } from "@anlg/plugin-fs-sync";
 import { commands as listener2Commands } from "@anlg/plugin-transcription";
 
+import { useAudioImportQueue, type AudioImportJob } from "./audio-import-queue";
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
+import { useSTTConnection } from "./useSTTConnection";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { getEnhancerService } from "~/services/enhancer";
 import { catalogLocalSessionAudio } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
-import { useSession, useUpdateSession } from "~/session/queries";
+import { createSession, useSession, useUpdateSession } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { createTranscript } from "~/stt/queries";
@@ -60,6 +62,7 @@ export function useUploadFile(sessionId: string) {
   const autoSummaryAfterRecording =
     useConfigValue("auto_summary_after_recording") !== false;
   const runBatch = useRunBatch(sessionId);
+  const { conn } = useSTTConnection();
   const queryClient = useQueryClient();
   const handleBatchStarted = useListener((state) => state.handleBatchStarted);
   const handleBatchFailed = useListener((state) => state.handleBatchFailed);
@@ -197,23 +200,19 @@ export function useUploadFile(sessionId: string) {
     (
       importAudio: () => Promise<string>,
       inspectAudioDate: () => Promise<void>,
+      options?: AudioImportJob["options"] & { signal?: AbortSignal },
     ) => {
-      const program = pipe(
-        Effect.promise(inspectAudioDate),
-        Effect.tap(() =>
-          Effect.sync(() => {
+      const cloudsyncLeaseKey = `${sessionId}:audio-import:${crypto.randomUUID()}`;
+      return withCloudsyncActivity(
+        "transcription",
+        cloudsyncLeaseKey,
+        async () => {
+          try {
+            options?.signal?.throwIfAborted();
+            await inspectAudioDate();
+            options?.signal?.throwIfAborted();
             handleBatchStarted(sessionId, "importing");
-          }),
-        ),
-        Effect.flatMap(() =>
-          Effect.tryPromise({
-            try: importAudio,
-            catch: (error) =>
-              error instanceof Error ? error : new Error(String(error)),
-          }),
-        ),
-        Effect.tap(() =>
-          Effect.sync(() => {
+            const importedPath = await importAudio();
             void analyticsCommands.event({
               event: "file_uploaded",
               file_type: "audio",
@@ -224,37 +223,31 @@ export function useUploadFile(sessionId: string) {
             void queryClient.invalidateQueries({
               queryKey: ["audio", sessionId, "url"],
             });
-          }),
-        ),
-        Effect.tap(() => Effect.sync(() => clearBatchSession(sessionId))),
-        Effect.flatMap((importedPath) =>
-          Effect.tryPromise({
-            try: () =>
-              runBatch(importedPath, {
-                promotion: { scope: "whole_session" },
-              }),
-            catch: (error) => error,
-          }),
-        ),
-        Effect.tap(() => Effect.promise(triggerEnhanceIfSummaryEmpty)),
-        Effect.catchAll((error: unknown) =>
-          Effect.sync(() => {
-            if (isStoppedTranscriptionError(error)) {
-              return;
+            clearBatchSession(sessionId);
+            options?.signal?.throwIfAborted();
+            await runBatch(importedPath, {
+              ...options,
+              allowFallback: false,
+              promotion: { scope: "whole_session" },
+            });
+            options?.signal?.throwIfAborted();
+            await triggerEnhanceIfSummaryEmpty();
+          } catch (error) {
+            if (
+              options?.signal?.aborted ||
+              isStoppedTranscriptionError(error)
+            ) {
+              clearBatchSession(sessionId);
+            } else {
+              const msg =
+                error instanceof Error ? error.message : String(error);
+              console.error("[upload] audio import failed:", error);
+              handleBatchFailed(sessionId, msg);
             }
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error("[upload] audio import failed:", error);
-            handleBatchFailed(sessionId, msg);
-          }),
-        ),
+            if (options?.signal) throw error;
+          }
+        },
       );
-
-      const cloudsyncLeaseKey = `${sessionId}:audio-import:${crypto.randomUUID()}`;
-      void withCloudsyncActivity("transcription", cloudsyncLeaseKey, () =>
-        Effect.runPromise(program),
-      ).catch((error) => {
-        console.error("[upload] audio failed:", error);
-      });
     },
     [
       clearBatchSession,
@@ -268,7 +261,11 @@ export function useUploadFile(sessionId: string) {
   );
 
   const processFile = useCallback(
-    (filePath: string, kind: "audio" | "transcript") => {
+    (
+      filePath: string,
+      kind: "audio" | "transcript",
+      options?: AudioImportJob["options"] & { signal?: AbortSignal },
+    ) => {
       const normalizedPath = filePath.toLowerCase();
 
       if (kind === "transcript") {
@@ -339,15 +336,17 @@ export function useUploadFile(sessionId: string) {
       }
 
       if (!isAudioUploadPath(normalizedPath)) {
+        if (options?.signal) throw new Error("Unsupported audio file");
         return;
       }
 
-      runAudioImport(
+      return runAudioImport(
         () =>
           importWithProgress(() =>
             fsSyncCommands.audioImport(sessionId, filePath),
           ),
         () => applyEstimatedAudioNoteDate(filePath),
+        options,
       );
     },
     [
@@ -363,15 +362,17 @@ export function useUploadFile(sessionId: string) {
   const processAudioFile = useCallback(
     (
       file: File,
-      options?: { allowUnknownAudio?: boolean; contentType?: string },
+      options?: AudioImportJob["options"] & { signal?: AbortSignal },
     ) => {
       if (!options?.allowUnknownAudio && !isAudioUploadFile(file)) {
+        if (options?.signal) throw new Error("Unsupported audio file");
         return;
       }
 
       const filePath = audioUploadFilePath(file);
-      runAudioImport(
+      return runAudioImport(
         async () => {
+          options?.signal?.throwIfAborted();
           if (filePath) {
             return importWithProgress(() =>
               fsSyncCommands.audioImport(sessionId, filePath),
@@ -384,18 +385,78 @@ export function useUploadFile(sessionId: string) {
               sessionId,
               data,
               file.name,
-              options?.contentType || file.type || null,
+              file.type || options?.contentType || null,
             ),
           );
         },
         () => applyDroppedAudioNoteDate(file),
+        options,
       );
     },
     [applyDroppedAudioNoteDate, importWithProgress, runAudioImport, sessionId],
   );
 
+  const queueAudioFiles = useCallback(
+    async (
+      sources: (string | File)[],
+      options?: AudioImportJob["options"] | AudioImportJob["options"][],
+      generation = useAudioImportQueue.getState().generation,
+    ) => {
+      const isCurrentScope = () =>
+        useAudioImportQueue.getState().generation === generation;
+      if (!isCurrentScope()) return;
+      if (!conn)
+        throw new Error(
+          "Configure a speech-to-text provider before importing audio.",
+        );
+      const connection = conn
+        ? {
+            provider: conn.provider,
+            model: conn.model,
+            baseUrl: conn.baseUrl,
+            apiKey: conn.apiKey,
+          }
+        : undefined;
+      return withCloudsyncActivity(
+        "transcription",
+        `${sessionId}:audio-import-allocation:${crypto.randomUUID()}`,
+        async () => {
+          const jobs: Omit<AudioImportJob, "id" | "status">[] = [];
+          for (const [index, source] of sources.entries()) {
+            if (!isCurrentScope()) return;
+            const name =
+              typeof source === "string"
+                ? source.split(/[\\/]/).pop() || source
+                : source.name;
+            const targetSessionId =
+              sources.length === 1 && index === 0
+                ? sessionId
+                : await createSession(
+                    name.replace(/\.[^.]+$/, ""),
+                    session?.user_id,
+                    { folder_id: session?.folder_id },
+                  );
+            if (!isCurrentScope()) return;
+            jobs.push({
+              sessionId: targetSessionId,
+              name,
+              source,
+              options: {
+                ...connection,
+                ...(Array.isArray(options) ? options[index] : options),
+              },
+            });
+          }
+          useAudioImportQueue.getState().enqueue(jobs);
+        },
+      );
+    },
+    [conn, sessionId, session?.user_id, session?.folder_id],
+  );
+
   const selectAndUpload = useCallback(
     (kind: "audio" | "transcript") => {
+      const generation = useAudioImportQueue.getState().generation;
       const filters =
         kind === "audio"
           ? [{ name: "Audio", extensions: AUDIO_EXTENSIONS }]
@@ -407,7 +468,7 @@ export function useUploadFile(sessionId: string) {
           Effect.promise(() =>
             selectFile({
               title: kind === "audio" ? "Upload Audio" : "Upload Transcript",
-              multiple: false,
+              multiple: kind === "audio",
               directory: false,
               defaultPath,
               filters,
@@ -418,6 +479,13 @@ export function useUploadFile(sessionId: string) {
 
       Effect.runPromise(program)
         .then((selection) => {
+          if (kind === "audio" && selection) {
+            return queueAudioFiles(
+              Array.isArray(selection) ? selection : [selection],
+              undefined,
+              generation,
+            );
+          }
           const path = Array.isArray(selection) ? selection[0] : selection;
           if (path) {
             processFile(path, kind);
@@ -427,7 +495,7 @@ export function useUploadFile(sessionId: string) {
           console.error("[upload] dialog failed:", error);
         });
     },
-    [processFile],
+    [processFile, queueAudioFiles],
   );
 
   const uploadAudio = useCallback(
@@ -439,7 +507,13 @@ export function useUploadFile(sessionId: string) {
     [selectAndUpload],
   );
 
-  return { uploadAudio, uploadTranscript, processFile, processAudioFile };
+  return {
+    uploadAudio,
+    uploadTranscript,
+    processFile,
+    processAudioFile,
+    queueAudioFiles,
+  };
 }
 
 function audioUploadFilePath(file: File) {

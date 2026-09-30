@@ -21,6 +21,8 @@ import { useTabs } from "~/store/zustand/tabs";
 export function SettingsDictation() {
   const { t } = useLingui();
   const enabled = useConfigValue("dictation_enabled");
+  const cleanupEnabled = useConfigValue("dictation_cleanup");
+  const setCleanupEnabled = useSetSettingValue("dictation_cleanup");
   const shortcut = useConfigValue("dictation_shortcut");
   const handsFree = useConfigValue("dictation_hands_free");
   const livePreview = useConfigValue("dictation_live_preview");
@@ -46,6 +48,7 @@ export function SettingsDictation() {
       retry: state.retry,
       cancel: state.cancel,
       lastTranscript: state.lastTranscript,
+      lastRawTranscript: state.lastRawTranscript,
     })),
   );
   const openNew = useTabs((state) => state.openNew);
@@ -94,6 +97,19 @@ export function SettingsDictation() {
           }
           checked={livePreview}
           onChange={setLivePreview}
+        />
+        <SettingSwitchRow
+          title={<Trans>Clean up dictation</Trans>}
+          description={
+            <Trans>
+              Fix punctuation and remove filler words with your selected AI
+              model. Local models keep this on your device; remote models
+              receive the text. The original transcript stays available below.
+              If cleanup fails, use the original text.
+            </Trans>
+          }
+          checked={cleanupEnabled}
+          onChange={setCleanupEnabled}
         />
         <SettingSwitchRow
           title={<Trans>Hands-free dictation</Trans>}
@@ -227,6 +243,25 @@ export function SettingsDictation() {
                 <Trans>Copy last dictation</Trans>
               )}
             </Button>
+            {status.lastRawTranscript &&
+              status.lastRawTranscript !== status.lastTranscript && (
+                <div className="flex flex-col gap-2">
+                  <h4 className="text-sm font-medium">
+                    <Trans>Original transcript</Trans>
+                  </h4>
+                  <p className="border-border rounded-lg border p-4 text-sm whitespace-pre-wrap">
+                    {status.lastRawTranscript}
+                  </p>
+                  <Button
+                    className="self-start"
+                    variant="outline"
+                    disabled={copy.isPending}
+                    onClick={() => copy.mutate(status.lastRawTranscript)}
+                  >
+                    <Trans>Copy original transcript</Trans>
+                  </Button>
+                </div>
+              )}
             {copy.isError && (
               <p role="alert" className="text-destructive text-sm">
                 <Trans>

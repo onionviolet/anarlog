@@ -123,6 +123,7 @@ export function TranscriptViewer({
     resume,
     start,
     seek,
+    loopSelection,
     audioExists,
   } = useAudioPlayer();
   const time = useAudioTime();
@@ -161,18 +162,20 @@ export function TranscriptViewer({
   visibleTranscriptIdsRef.current = visibleTranscriptIds;
 
   const handleSelectionAction = useCallback(
-    (action: "copy" | "play", selection: TranscriptWordSelection) => {
+    (action: "copy" | "play" | "loop", selection: TranscriptWordSelection) => {
       if (action === "copy") {
         void navigator.clipboard.writeText(selection.text);
         return;
       }
 
-      if (audioExists) {
+      if (audioExists && action === "loop" && selection.endMs !== undefined) {
+        loopSelection(selection.startMs / 1000, selection.endMs / 1000);
+      } else if (audioExists) {
         seek(selection.startMs / 1000);
         start();
       }
     },
-    [audioExists, seek, start],
+    [audioExists, loopSelection, seek, start],
   );
   const handleAssignSpeaker = useCallback(
     async (

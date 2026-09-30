@@ -294,13 +294,17 @@ export function parseCsvRows(input: string): string[][] {
 
 function parseCaptionTranscript(content: string) {
   const blocks = content
-    .replace(/^WEBVTT[^\n]*\n/u, "")
+    .replace(/^\uFEFF/u, "")
+    .replace(/^WEBVTT[^\n]*(?:\n|$)/u, "")
     .split(/\r?\n\s*\r?\n/u);
   return blocks.flatMap((block) => {
     const lines = block
       .split(/\r?\n/u)
       .map((line) => line.trim())
       .filter(Boolean);
+    if (/^(?:NOTE(?:\s|$)|STYLE$|REGION$)/u.test(lines[0] ?? "")) {
+      return [];
+    }
     const timingIndex = lines.findIndex((line) => line.includes("-->"));
     if (timingIndex === -1) return [];
     const [start, end] = lines[timingIndex]!.split("-->");
@@ -309,7 +313,9 @@ function parseCaptionTranscript(content: string) {
     const speakerMatch = rawText.match(/^([^:]{1,60}):\s+(.+)$/u);
     return [
       {
-        speaker: voiceMatch?.[1]?.trim() ?? speakerMatch?.[1]?.trim() ?? "",
+        speaker: decodeCaptionEntities(
+          voiceMatch?.[1]?.trim() ?? speakerMatch?.[1]?.trim() ?? "",
+        ),
         text: stripCaptionMarkup(
           voiceMatch?.[2] ?? speakerMatch?.[2] ?? rawText,
         ),
@@ -569,5 +575,15 @@ function parseTimestamp(value: string) {
 }
 
 function stripCaptionMarkup(value: string) {
-  return value.replace(/<[^>]+>/gu, "").trim();
+  return decodeCaptionEntities(value.replace(/<[^>]+>/gu, "")).trim();
+}
+
+function decodeCaptionEntities(value: string) {
+  return value.replace(
+    /&(amp|lt|gt|nbsp|lrm|rlm);/gu,
+    (_match, entity: string) =>
+      ({ amp: "&", lt: "<", gt: ">", nbsp: " ", lrm: "\u200E", rlm: "\u200F" })[
+        entity
+      ] ?? _match,
+  );
 }

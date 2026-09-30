@@ -83,7 +83,7 @@ export function SelectionMenu({
   audioExists: boolean;
   onContextClose: () => void;
   onAction?: (
-    action: "copy" | "play",
+    action: "copy" | "play" | "loop",
     selection: TranscriptWordSelection,
   ) => void;
   onEdit?: (selection: TranscriptWordSelection) => void;
@@ -258,7 +258,7 @@ function TextSelectionMenu({
   suspended: boolean;
   audioExists: boolean;
   onAction?: (
-    action: "copy" | "play",
+    action: "copy" | "play" | "loop",
     selection: TranscriptWordSelection,
   ) => void;
   onEdit?: (selection: TranscriptWordSelection) => void;
@@ -316,7 +316,7 @@ function ContextSelectionMenu({
   audioExists: boolean;
   onClose: () => void;
   onAction?: (
-    action: "copy" | "play",
+    action: "copy" | "play" | "loop",
     selection: TranscriptWordSelection,
   ) => void;
   onEdit?: (selection: TranscriptWordSelection) => void;
@@ -392,14 +392,14 @@ function SelectionFloatingMenu({
   audioExists: boolean;
   onClose: () => void;
   onAction?: (
-    action: "copy" | "play",
+    action: "copy" | "play" | "loop",
     selection: TranscriptWordSelection,
   ) => void;
   onEdit?: (selection: TranscriptWordSelection) => void;
   onChangeSpeaker?: (selection: TranscriptWordSelection) => void;
 }) {
   const handleAction = useCallback(
-    (action: "copy" | "play") => {
+    (action: "copy" | "play" | "loop") => {
       onAction?.(action, selection);
       onClose();
     },
@@ -460,6 +460,18 @@ function SelectionFloatingMenu({
                 <Trans>Play from here</Trans>
               </button>
             )}
+            {audioExists &&
+              selection.endMs !== undefined &&
+              selection.endMs > selection.startMs && (
+                <button
+                  type="button"
+                  className={cn(MENU_BUTTON_CLASSES)}
+                  onClick={() => handleAction("loop")}
+                >
+                  <Play className="size-3.5" />
+                  <Trans>Loop selection</Trans>
+                </button>
+              )}
             <button
               type="button"
               className={cn(MENU_BUTTON_CLASSES)}

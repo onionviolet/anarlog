@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useMemo, useState } from "react";
 
 import { Pause, Play } from "@anlg/ui/components/icons";
@@ -30,6 +31,8 @@ export function Timeline({
     resume,
     start,
     stop,
+    clearLoop,
+    looping,
     playbackRate,
     setPlaybackRate,
     deleteRecording,
@@ -116,6 +119,15 @@ export function Timeline({
             <span>{formatTime(time.total)}</span>
           </TimelineMeta>
 
+          {looping && (
+            <button
+              type="button"
+              onClick={clearLoop}
+              className="text-muted-foreground shrink-0 text-xs underline"
+            >
+              <Trans>Stop looping</Trans>
+            </button>
+          )}
           {playbackSpeedAllowed ? (
             <DropdownMenu
               modal={false}
