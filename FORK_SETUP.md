@@ -18,9 +18,11 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 
 **Verification:** all 92 `listener2-core` tests passed, including HTTP cancellation/checkpoint resume and boundary overlap. The focused desktop run passed 92 tests; typecheck, ESLint, Oxlint, translation extraction/strict compilation, 88 common tests, license checks, two MP3 tests, and strict Clippy for the affected Rust packages passed. `pnpm -F @anlg/desktop test --maxWorkers=2` passed 4,173 tests but timed out in unchanged provider-routing (30 seconds) and folder-deletion (5 seconds) tests. Their isolated rerun passed 10/10; the full-run result remains non-clean. Workflow scanning returned the same 350 existing findings in offline mode; authenticated online audits were unavailable.
 
-**Delivery gate:** the production 1.4.28 app built and passed strict deep signature verification; installation and native UI/provider smoke checks remain pending. The older staged 1.4.28 app predates these changes and is not their delivery artifact.
+**Installed:** the signed production 1.4.28 fork build from implementation commit `f85e4ce2d2` is installed at `/Applications/Anarlog Dev.app`, and the CLI doctor reports ready against the original database. The previous app is retained at `/Applications/Anarlog Dev.app.previous.wrap-20260930-012623`. This is a local fork build, not a published upstream release.
 
-**Resume with:** after installation, open the EMT note and use Re-transcribe with the current local R2T2 selection when ready to continue. Leave it stopped until then. The recovered partial SRT is independently reopenable; automatic checkpoint resume applies to new part-based runs.
+**Native checks:** the reopened app shows Custom / `r2t2-asr-stream` with default English in the per-run dialog; that dialog was cancelled without restarting the EMT job. Actual SRT export wrote 251 cues, selection playback looping started and stopped, and the native export-folder picker opened and was cancelled without changing `~/Downloads`. Dictation cleanup remains off. All three direct-token forms render; no credentials were entered or external actions enabled. A short synthetic clip passed through the real local R2T2 bridge and produced the expected 12-word transcript. Full native multi-file picker/drop-to-transcript execution and real external-service writes remain unverified; queue/transport behavior is covered by focused tests.
+
+**Resume with:** open the EMT note and use Re-transcribe with the current local R2T2 selection when ready to continue. Leave it stopped until then. The recovered partial SRT is independently reopenable; automatic checkpoint resume applies to new part-based runs.
 
 ## Historical status, 2026-09-11
 
