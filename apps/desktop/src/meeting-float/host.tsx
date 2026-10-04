@@ -4,6 +4,7 @@ import {
   commands as windowsCommands,
   events as windowsEvents,
 } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   createMeetingFloatLabelContext,
@@ -49,15 +50,12 @@ import {
 } from "~/settings/queries";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type { RenderLabelContext } from "~/stt/live-segment";
 
 export {
-  getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
-  shouldShowFloatingLiveCaptionToggle,
 } from "./route-state";
 
 export function FloatingMeetingWindowHost() {

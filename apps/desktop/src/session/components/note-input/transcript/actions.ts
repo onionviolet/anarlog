@@ -6,6 +6,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { getEnhancerService } from "~/services/enhancer";
+import { useConfigValue } from "~/shared/config";
 import { useListener } from "~/stt/contexts";
 import {
   isStoppedTranscriptionError,
@@ -16,6 +17,8 @@ import {
 export function useRegenerateTranscript(sessionId: string) {
   const runBatch = useRunBatch(sessionId);
   const handleBatchFailed = useListener((state) => state.handleBatchFailed);
+  const autoSummaryAfterRecording =
+    useConfigValue("auto_summary_after_recording") !== false;
 
   return useCallback(
     async (
@@ -44,9 +47,11 @@ export function useRegenerateTranscript(sessionId: string) {
               allowFallback: false,
               promotion: { scope: "whole_session" },
             });
-            await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(
-              sessionId,
-            );
+            if (autoSummaryAfterRecording) {
+              await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(
+                sessionId,
+              );
+            }
           },
         );
         return true;
@@ -63,6 +68,6 @@ export function useRegenerateTranscript(sessionId: string) {
         return false;
       }
     },
-    [handleBatchFailed, runBatch, sessionId],
+    [autoSummaryAfterRecording, handleBatchFailed, runBatch, sessionId],
   );
 }

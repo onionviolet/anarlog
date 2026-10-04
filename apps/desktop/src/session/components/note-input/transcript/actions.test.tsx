@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   queueAutoEnhanceIfSummaryEmpty: vi.fn(),
   runBatch: vi.fn(),
   toastError: vi.fn(),
+  autoSummaryAfterRecording: true,
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -23,6 +24,10 @@ vi.mock("~/services/enhancer", () => ({
   getEnhancerService: () => ({
     queueAutoEnhanceIfSummaryEmpty: mocks.queueAutoEnhanceIfSummaryEmpty,
   }),
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.autoSummaryAfterRecording,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -41,6 +46,7 @@ import { useRegenerateTranscript } from "./actions";
 describe("useRegenerateTranscript", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.autoSummaryAfterRecording = true;
     mocks.audioPath.mockResolvedValue({
       status: "ok",
       data: "/tmp/session.wav",
@@ -111,5 +117,19 @@ describe("useRegenerateTranscript", () => {
       "transcription",
       vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],
     );
+  });
+
+  it("keeps retranscription transcript-only when automatic summaries are off", async () => {
+    mocks.autoSummaryAfterRecording = false;
+    mocks.runBatch.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useRegenerateTranscript("session-1"));
+
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current();
+    });
+
+    expect(saved).toBe(true);
+    expect(mocks.queueAutoEnhanceIfSummaryEmpty).not.toHaveBeenCalled();
   });
 });

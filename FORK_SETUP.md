@@ -6,7 +6,21 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 
 ---
 
-## Current session, 2026-09-30
+## Current source, 2026-10-03
+
+**Source:** local `main`, integrated through `chore/upstream-workflow-refresh-20261003`, includes upstream through `93deb8642e` (90 new commits) with the fork's local features. This source has not been installed or published.
+
+**Workflow changes:** retranscription respects the automatic-summary setting; Rust recovery markers preserve the setting across reloads; a cancelled database-lock retry cannot promote a replacement transcript; supported local and BYOK runs no longer wait on Anarlog authentication. Upstream's atomic transcript saves, native recovery, dominant-language summaries, calendar fixes, speaker-labelled Markdown exports, and new provider support are retained. Local Ollama summaries now use the model's output limit while keeping task-specific reasoning controls.
+
+**Preserved fork behavior:** R2T2 part checkpoints are acknowledged only after persistence; sequential audio imports retain their explicit provider and account scope; direct automation tokens remain device-local; local features remain available without payment or sign-in. Mobile recording keep-awake, live status, and battery warnings moved into upstream's new note screen. CloudSync cleanup still defers interruption through the new reserved-connection API.
+
+**Verification:** the final desktop run passed all 4,106 tests across 493 files. All 705 tests across the nine checked Rust packages passed, followed by 14 stream tests and the embedding round-trip test after the Rust 1.98 compatibility edits. Strict Clippy and the production desktop frontend build/typecheck passed. Mobile and web typechecks, 286 mobile tests, 365 web tests, 35 shared-client tests, 89 common CI tests, license checks, strict translation compilation, public media checks, and the macOS window-library build have passed. The shared-client typecheck now includes the Web API libraries its public functions consume. The audio helpers use Rust 1.98-compatible fixed-size chunks. Provider-routing tests stub display-only icons to avoid loading the full icon library during URL assertions; the timezone-sensitive billing fixture now uses its intended local calendar date.
+
+**Remaining coverage:** the imported sharing/team query code has eight ESLint errors, unchanged from upstream. The offline workflow audit reports 349 existing upstream findings; authenticated audits are unavailable. Installation, hardware/provider execution, hosted database tests, and other-platform native checks are separate from this source integration.
+
+See the September 30 entry below for the last installed build and paused EMT retranscription details.
+
+## Historical session, 2026-09-30
 
 **Source:** `fix/oss-workflow-parity`, based on the upstream integration `9b49a9a620` and competitor-workflow implementation `7e28b05577`. The completed chats "Review upstream changes" and "Audit competitor features" were reconciled against this checkout.
 
@@ -42,7 +56,7 @@ Upstream is MIT and the local pipeline is mostly free already, but a few feature
 
 So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, because they are served by someone else's infrastructure and unlocking them would only produce confusing failures. **Dictionary, app icons, playback speed, summary-format editing, automation drafts, and Markdown-export automations are ungated** because they execute on this machine.
 
-`branch: fix/oss-workflow-parity`
+`branch: main`
 
 | Feature | Upstream | Here | Why |
 |---|---|---|---|
@@ -55,9 +69,9 @@ So **Sync, Teams, the Cloud API, and cloud automation actions stay gated**, beca
 | Direct Slack, Linear, and Notion token connections | unavailable | free | Call the user-selected service directly with device-local credentials |
 | Sync, Teams, Cloud API | Pro | Pro | Anarlog's servers do the work |
 
-**Automation access is split at the actual transport boundary.** Draft editing and Markdown export do not wait on billing claims. Enabling Slack, Linear, or Notion actions still requires paid access because their implementations call Anarlog's backend rather than those services directly.
+**Automation access is split at the transport boundary.** Local drafts, Markdown export, and direct-token actions do not wait on billing claims. Hosted Nango actions retain their paid-access checks.
 
-**Automated verification passed for the 2026-09-11 refresh.** Formatting, desktop typecheck and lint, all 4,292 desktop tests, the focused entitlement tests, generated locale stability, `cargo check`, and 54 affected Rust package tests are green. The branch still needs a production build and live macOS recording/provider checks before installation. A repo-wide TypeScript sweep also reaches an unrelated upstream `@anlg/supabase` failure because its type environment omits browser globals such as `fetch`, `URL`, and `Blob`; the affected desktop typecheck passes.
+**Historical verification, 2026-09-11.** Formatting, desktop typecheck and lint, all 4,292 desktop tests, the focused entitlement tests, generated locale stability, `cargo check`, and 54 affected Rust package tests are green. At that point the branch still needed a production build and live macOS recording/provider checks. The shared-client typecheck then lacked browser globals; the October 3 source update fixes that configuration.
 
 ## Rebuilding without the ceremony
 

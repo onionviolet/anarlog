@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  clearTarget: vi.fn(),
   downloadModel: vi.fn(),
   toastError: vi.fn(),
   upgradeToPro: vi.fn(),
@@ -20,12 +19,9 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ upgradeToPro: mocks.upgradeToPro }),
 }));
 
-vi.mock("~/store/zustand/toast-action", () => ({
-  useToastAction: (selector: (state: unknown) => unknown) =>
-    selector({ target: null, clearTarget: mocks.clearTarget }),
-}));
-
 import { SttSettingsProvider, useSttSettings } from "./context";
+
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
 
 function Probe() {
   const { queuedDownloads, startDownload } = useSttSettings();
@@ -33,7 +29,7 @@ function Probe() {
   return (
     <>
       <div data-testid="queued">{queuedDownloads.join(",")}</div>
-      <button onClick={() => startDownload("soniqo-parakeet-batch")}>
+      <button onClick={() => startDownload("soniqo-parakeet-batch", "soniqo")}>
         Download
       </button>
     </>
@@ -43,6 +39,7 @@ function Probe() {
 describe("SttSettingsProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    usePendingSttSelection.setState({ selection: null, queuedDownloads: [] });
   });
 
   it("shows the command error and makes a failed model retryable", async () => {
@@ -57,6 +54,10 @@ describe("SttSettingsProvider", () => {
       </SttSettingsProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(usePendingSttSelection.getState().selection).toEqual({
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+    });
 
     await waitFor(() => {
       expect(mocks.toastError).toHaveBeenCalledWith(
@@ -65,5 +66,6 @@ describe("SttSettingsProvider", () => {
       );
     });
     expect(screen.getByTestId("queued").textContent).toBe("");
+    expect(usePendingSttSelection.getState().selection).toBeNull();
   });
 });

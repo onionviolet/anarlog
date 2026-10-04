@@ -118,7 +118,9 @@ pub(super) fn active_audio_samples(audio: &[u8]) -> usize {
         return 0;
     }
     let energy = audio
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|bytes| {
             let sample = f64::from(i16::from_le_bytes([bytes[0], bytes[1]])) / 32768.0;
             sample * sample

@@ -149,3 +149,39 @@ describe("normalizeLLMProviderId", () => {
     expect(normalizeLLMProviderId("openai")).toBe("openai");
   });
 });
+
+it("sends OpenRouter app-attribution headers for the BYOK openrouter provider", async () => {
+  fixture.values.current_llm_provider = "openrouter";
+  vi.mocked(tauriFetch).mockImplementation(async (input, init) => {
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
+    expect(headers.get("HTTP-Referer")).toBe("https://anarlog.so");
+    expect(headers.get("X-OpenRouter-Title")).toBe("Anarlog");
+    expect(headers.get("X-OpenRouter-Categories")).toBe(
+      "writing-assistant,personal-agent",
+    );
+    return Response.json({
+      id: "openrouter-completion",
+      model: "mtplx",
+      created: 0,
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "Hello from OpenRouter" },
+          finish_reason: "stop",
+        },
+      ],
+    });
+  });
+
+  const { result, unmount } = renderHook(() => useLanguageModel());
+  expect(result.current).not.toBeNull();
+  const completion = await generateText({
+    model: result.current!,
+    prompt: "Summarize the meeting",
+    maxRetries: 0,
+  });
+  expect(await completion.text).toBe("Hello from OpenRouter");
+  unmount();
+});

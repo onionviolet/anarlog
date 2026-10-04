@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
@@ -12,21 +12,18 @@ import {
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { WindowsWindowControls } from "~/main/windows-window-controls";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 
 export type InstructionType = "sign-in" | "billing" | "integration";
 
 function useInstructionCleanup(onCleanup?: () => void) {
-  const cleanupRef = useRef(onCleanup);
-
-  useEffect(() => {
-    cleanupRef.current = onCleanup;
-  }, [onCleanup]);
+  const cleanupRef = useLatestRef(onCleanup);
 
   useMountEffect(() => {
     return () => {

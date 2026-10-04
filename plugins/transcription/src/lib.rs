@@ -8,11 +8,18 @@ use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
 
 mod api;
+mod audio_retention;
+mod batch_transcript;
+mod capture_gaps;
+mod capture_markers;
 mod error;
 mod listener;
 mod listener2;
+mod live_journal;
 mod recording_safety;
+mod session_transcript;
 mod sleep_prevention;
+mod stopped_captures;
 mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
@@ -25,9 +32,13 @@ pub use anlg_transcription_core::listener2::{
     parse_subtitle_from_path, suggest_providers_for_languages_batch,
 };
 pub use api::*;
+pub use audio_retention::{SessionAudioRetentionEvent, SessionAudioRetentionPhase};
+pub use capture_gaps::CaptureGapRegistry;
+pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture, SummaryMode};
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
+pub use stopped_captures::StoppedCaptureRegistry;
 
 use anlg_audio::AudioProvider;
 use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
@@ -136,6 +147,19 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
+            listener::commands::flush_live_transcript::<tauri::Wry>,
+            listener::commands::release_live_transcript::<tauri::Wry>,
+            listener::commands::list_stopped_captures::<tauri::Wry>,
+            listener::commands::get_stopped_capture::<tauri::Wry>,
+            listener::commands::acknowledge_stopped_capture::<tauri::Wry>,
+            listener::commands::save_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::clear_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::get_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::list_capture_lifecycle_markers::<tauri::Wry>,
+            listener::commands::list_capture_recoveries::<tauri::Wry>,
+            listener::commands::get_capture_audio_gaps::<tauri::Wry>,
+            listener::commands::mark_capture_audio_saved::<tauri::Wry>,
+            listener::commands::clear_capture_audio_saved::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
@@ -152,6 +176,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,
             listener::commands::render_transcript_segments,
+            listener2::commands::render_session_transcript::<tauri::Wry>,
+            listener2::commands::refine_batch_transcript,
+            listener2::commands::save_batch_transcript::<tauri::Wry>,
+            listener2::commands::reconcile_refined_speaker_clusters,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
             listener2::commands::list_transcription_sessions::<tauri::Wry>,
@@ -164,12 +192,14 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener2::commands::list_documented_language_codes_batch::<tauri::Wry>,
             voiceprint::extract_voiceprint_candidates::<tauri::Wry>,
             voiceprint::promote_voiceprint_candidates::<tauri::Wry>,
-            voiceprint::cleanup_expired_voiceprint_candidates::<tauri::Wry>,
+            audio_retention::delete_processed_session_audio::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CaptureLifecycleEvent,
             CaptureStatusEvent,
             CaptureDataEvent,
+            LiveTranscriptPersistenceEvent,
+            SessionAudioRetentionEvent,
             TranscriptionEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -188,6 +218,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app: app_handle.clone(),
             }));
             app.manage(state);
+            app.manage(live_journal::LiveJournalRegistry::default());
+            let stopped_capture_registry = StoppedCaptureRegistry::default();
+            app.manage(stopped_capture_registry.clone());
+            let capture_gap_registry = CaptureGapRegistry::default();
+            app.manage(capture_gap_registry.clone());
             let batch_registry = Arc::new(BatchSessionRegistry {
                 completed_dir: app
                     .path()
@@ -212,6 +247,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 session_state_cache,
                 mic_isolation_cache,
                 sleep_prevention: Arc::new(sleep_prevention::RecordingSleepPrevention::new()),
+                stopped_capture_registry,
+                capture_gap_registry,
             });
 
             tauri::async_runtime::spawn(async move {
@@ -224,6 +261,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 .map(|_| tracing::info!("root_actor_spawned"))
                 .map_err(|e| tracing::error!(?e, "failed_to_spawn_root_actor"))
             });
+            audio_retention::spawn(app_handle);
 
             Ok(())
         })

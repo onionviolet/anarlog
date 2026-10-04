@@ -32,7 +32,7 @@ import { privacyMessages } from "~/settings/general/app-settings";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { type SettingsTab, type TabInput } from "~/store/zustand/tabs";
 
-export type SettingsNavItem =
+type SettingsNavItem =
   | {
       id: SettingsTab;
       label: string;

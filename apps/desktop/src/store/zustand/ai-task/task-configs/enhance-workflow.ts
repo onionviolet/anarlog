@@ -13,19 +13,16 @@ import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 import { appendPreferredNamesGuidance } from "./preferred-names";
 
-import { supportsDisabledReasoning } from "~/ai/reasoning-effort";
 import {
   formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
-  getSummaryLengthPolicy,
 } from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
 
 const AI_GENERATION_MAX_RETRIES = 4;
-const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
-const OLLAMA_SUMMARY_MAX_OUTPUT_TOKENS = 4096;
+const ANTHROPIC_SUMMARY_MAX_OUTPUT_TOKENS = 64_000;
 const IMAGE_CONTEXT_NOTE =
   "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
 
@@ -40,14 +37,13 @@ export const enhanceWorkflow: Pick<
   ],
 };
 
-const summaryMaxOutputTokens = (model: LanguageModel): number =>
-  // createOpenAICompatible({ name: "ollama" }) identifies its chat model as
-  // "ollama.chat" in the installed AI SDK.
-  typeof model !== "string" &&
-  model.provider === "ollama.chat" &&
-  supportsDisabledReasoning("ollama", model.modelId)
-    ? OLLAMA_SUMMARY_MAX_OUTPUT_TOKENS
-    : SUMMARY_MAX_OUTPUT_TOKENS;
+// Anthropic requires max_tokens and the SDK clamps it to known model limits;
+// other providers default to the model's own maximum when omitted.
+function getSummaryMaxOutputTokens(model: LanguageModel): number | undefined {
+  return typeof model !== "string" && model.provider.startsWith("anthropic")
+    ? ANTHROPIC_SUMMARY_MAX_OUTPUT_TOKENS
+    : undefined;
+}
 
 async function* executeWorkflow(params: {
   model: LanguageModel;
@@ -60,9 +56,8 @@ async function* executeWorkflow(params: {
   const system = await getSystemPrompt(args);
   const prompt = withLengthGuidance(
     withImageContextNote(await getUserPrompt(args), args.imageContext.length),
-    args.transcripts,
+    args.lengthPolicy,
     args.template?.sections.length ?? 0,
-    args.summaryLength,
     Boolean(args.formatOverride.trim()),
   );
 
@@ -180,7 +175,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         ...createPromptInput(enhancedPrompt, args.imageContext),
         abortSignal: combinedController.signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
-        maxOutputTokens: summaryMaxOutputTokens(model),
+        maxOutputTokens: getSummaryMaxOutputTokens(model),
       });
       return withCleanup(result.fullStream, () => {
         signal.removeEventListener("abort", abortFromOuter);
@@ -228,21 +223,15 @@ ${IMAGE_CONTEXT_NOTE}`;
 
 function withLengthGuidance(
   prompt: string,
-  transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
+  lengthPolicy: TaskArgsMapTransformed["enhance"]["lengthPolicy"],
   templateSectionCount: number,
-  summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
   customFormat: boolean,
 ): string {
   const hasTemplateSections = templateSectionCount > 0;
-  const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(
-      transcripts,
-      summaryLength,
-      customFormat || hasTemplateSections,
-      templateSectionCount,
-    ),
-    { customFormat, hasTemplateSections },
-  );
+  const guidance = formatSummaryLengthGuidance(lengthPolicy, {
+    customFormat,
+    hasTemplateSections,
+  });
   if (!guidance) return prompt;
 
   return `${prompt}

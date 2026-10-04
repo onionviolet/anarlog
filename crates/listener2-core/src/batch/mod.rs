@@ -201,7 +201,7 @@ pub fn uses_local_diarization(params: &BatchParams) -> bool {
 
 pub fn expects_progressive_batch(params: &BatchParams) -> bool {
     match params.provider {
-        BatchProvider::Am => {
+        BatchProvider::Am | BatchProvider::OpenAI => {
             let listen_params = owhisper_interface::ListenParams {
                 model: params.model.clone(),
                 languages: params.languages.clone(),
@@ -214,9 +214,6 @@ pub fn expects_progressive_batch(params: &BatchParams) -> bool {
             )
         }
         BatchProvider::WhisperLocal => true,
-        BatchProvider::OpenAI => {
-            OpenAIAdapter::supports_progressive_batch_model(params.model.as_deref())
-        }
         _ => false,
     }
 }
@@ -256,7 +253,7 @@ async fn run_batch_inner(
         r2t2::run(runtime, params, listen_params).await
     } else {
         match params.provider {
-            BatchProvider::Am => {
+            BatchProvider::Am | BatchProvider::OpenAI => {
                 let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
                 if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
                     run_progressive_batch_session(runtime, params, listen_params).await
@@ -270,14 +267,6 @@ async fn run_batch_inner(
             BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
             BatchProvider::AppleSpeech => {
                 run_apple_speech_batch(runtime, params, listen_params).await
-            }
-            BatchProvider::OpenAI => {
-                if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
-                    run_progressive_batch_session(runtime, params, listen_params).await
-                } else {
-                    run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params)
-                        .await
-                }
             }
             BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
                 provider: batch_provider_label(BatchProvider::DashScope),
@@ -302,11 +291,16 @@ fn resolve_batch_adapter_kind(
     params: &BatchParams,
     listen_params: &owhisper_interface::ListenParams,
 ) -> AdapterKind {
-    AdapterKind::from_url_and_languages(
+    let resolved = AdapterKind::from_url_and_languages(
         &params.base_url,
         &listen_params.languages,
         listen_params.model.as_deref(),
-    )
+    );
+    if matches!(params.provider, BatchProvider::OpenAI) && resolved != AdapterKind::AmazonBedrock {
+        AdapterKind::OpenAI
+    } else {
+        resolved
+    }
 }
 
 fn supports_progressive_batch(adapter_kind: AdapterKind, model: Option<&str>) -> bool {
@@ -498,6 +492,12 @@ mod tests {
             (BatchProvider::Anarlog, "https://api.anarlog.so/stt", false),
             (BatchProvider::Am, "https://api.anarlog.so/stt", false),
             (BatchProvider::Am, "http://localhost:50060/v1", true),
+            (BatchProvider::OpenAI, "http://localhost:9000/v1", true),
+            (
+                BatchProvider::OpenAI,
+                "http://localhost:9000/v1?provider=amazon_bedrock",
+                false,
+            ),
         ];
 
         for (provider, base_url, expected) in cases {

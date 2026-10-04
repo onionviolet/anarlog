@@ -13,6 +13,8 @@ import {
 import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import type { SessionAudioRetentionEvent } from "@anlg/plugin-transcription";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { configureCenteredPlayback } from "./playback";
 import { SelectionLoop } from "./selection-loop";
@@ -24,7 +26,6 @@ import {
   subscribeToSessionAudioRetention,
 } from "~/services/audio-retention";
 import { deleteSessionAudio } from "~/session/attachments";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const TIME_UPDATE_STEP_SECONDS = 0.1;
 
@@ -389,10 +390,10 @@ export function AudioPlayerProvider({
     });
   }, [queryClient, sessionId]);
   const retentionHandlerRef = useRef(
-    (_event: { phase: "deleting" | "deleted"; sessionId: string }) => {},
+    (_event: SessionAudioRetentionEvent) => {},
   );
   retentionHandlerRef.current = (event) => {
-    if (event.sessionId !== sessionId) {
+    if (event.session_id !== sessionId) {
       return;
     }
     stop();

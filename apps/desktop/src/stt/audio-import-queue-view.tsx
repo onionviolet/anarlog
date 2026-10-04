@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { type AudioImportJob, useAudioImportQueue } from "./audio-import-queue";
 import { useListener } from "./contexts";
 import { isStoppedTranscriptionError } from "./useRunBatch";
@@ -10,7 +12,6 @@ import { useUploadFile } from "./useUploadFile";
 
 import { useAuth } from "~/auth";
 import { preloadSession } from "~/session/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function AudioImportQueueView() {

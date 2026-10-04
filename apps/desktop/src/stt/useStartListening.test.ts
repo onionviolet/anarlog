@@ -41,7 +41,8 @@ const {
   useSessionParticipantHumanIdsMock,
   getSessionParticipantHumanIdsMock,
   createLiveTranscriptMock,
-  applyLiveTranscriptDeltaToDatabaseMock,
+  appendRecoveredTranscriptWordsMock,
+  createNativeTranscriptPersistenceMock,
   flushLiveTranscriptDeltasToDatabaseMock,
   transcriptExistsMock,
   softDeleteTranscriptMock,
@@ -50,6 +51,8 @@ const {
   markCaptureAudioSavedMock,
   clearCaptureAudioSavedMock,
   getCaptureSnapshotMock,
+  getStoppedCaptureMock,
+  acknowledgeStoppedCaptureMock,
   clearCaptureLifecycleMarkerMock,
   requestCaptureRecoveryMock,
   waitForSessionSearchIndexMock,
@@ -103,7 +106,8 @@ const {
   useSessionParticipantHumanIdsMock: vi.fn(),
   getSessionParticipantHumanIdsMock: vi.fn(),
   createLiveTranscriptMock: vi.fn(),
-  applyLiveTranscriptDeltaToDatabaseMock: vi.fn(),
+  appendRecoveredTranscriptWordsMock: vi.fn(),
+  createNativeTranscriptPersistenceMock: vi.fn(),
   flushLiveTranscriptDeltasToDatabaseMock: vi.fn(),
   transcriptExistsMock: vi.fn(),
   softDeleteTranscriptMock: vi.fn(),
@@ -112,6 +116,8 @@ const {
   markCaptureAudioSavedMock: vi.fn(() => Promise.resolve()),
   clearCaptureAudioSavedMock: vi.fn(() => Promise.resolve()),
   getCaptureSnapshotMock: vi.fn(),
+  getStoppedCaptureMock: vi.fn(),
+  acknowledgeStoppedCaptureMock: vi.fn(),
   clearCaptureLifecycleMarkerMock: vi.fn(),
   requestCaptureRecoveryMock: vi.fn(),
   waitForSessionSearchIndexMock: vi.fn(),
@@ -157,6 +163,9 @@ vi.mock("~/auth", () => ({
 }));
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
+    acknowledgeStoppedCapture: acknowledgeStoppedCaptureMock,
+    getStoppedCapture: getStoppedCaptureMock,
+    getCaptureAudioGaps: vi.fn(async () => ({ status: "ok", data: null })),
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
     recordingSafetyStatus: recordingSafetyStatusMock,
     listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
@@ -167,6 +176,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
     deleteTranscribedCaptureAudio: deleteTranscribedCaptureAudioMock,
     updateCaptureCredentials: vi.fn(async () => ({ status: "ok", data: null })),
     getCaptureSnapshot: getCaptureSnapshotMock,
+    listStoppedCaptures: vi.fn(async () => ({ status: "ok", data: [] })),
   },
   events: {
     captureLifecycleEvent: { listen: vi.fn(async () => () => {}) },
@@ -176,6 +186,10 @@ vi.mock("@anlg/plugin-transcription", () => ({
 vi.mock("./capture-result", () => ({
   saveIncompleteCapture: vi.fn(async () => {}),
   clearIncompleteCapture: vi.fn(async () => {}),
+}));
+
+vi.mock("./native-transcript-persistence", () => ({
+  createNativeTranscriptPersistence: createNativeTranscriptPersistenceMock,
 }));
 
 vi.mock("./contexts", () => ({
@@ -255,6 +269,9 @@ vi.mock("./useRunBatch", () => ({
     /corrupt or unsupported|no speech|authentication failed/i.test(
       error instanceof Error ? error.message : String(error),
     ),
+  ),
+  reconcileRefinedSpeakerClusters: vi.fn(
+    async (_source: unknown, _words: unknown, hints: unknown) => hints,
   ),
   useRunBatch: vi.fn(() => runBatchMock),
 }));
@@ -349,7 +366,7 @@ vi.mock("~/stt/search-index-consistency", () => ({
 }));
 
 vi.mock("~/stt/queries", () => ({
-  applyLiveTranscriptDeltaToDatabase: applyLiveTranscriptDeltaToDatabaseMock,
+  appendRecoveredTranscriptWords: appendRecoveredTranscriptWordsMock,
   createLiveTranscript: createLiveTranscriptMock,
   flushLiveTranscriptDeltasToDatabase: flushLiveTranscriptDeltasToDatabaseMock,
   getTranscriptRecord: vi.fn(async () => null),
@@ -364,6 +381,35 @@ let disclosureSessionSequence = 0;
 function nextDisclosureSessionId() {
   disclosureSessionSequence += 1;
   return `disclosure-session-${disclosureSessionSequence}`;
+}
+
+function failNextNativePersistenceFlush() {
+  createNativeTranscriptPersistenceMock.mockImplementationOnce(
+    ({ onError }) => ({
+      flush: vi.fn(async () => onError(new Error("write failed"))),
+      hasPendingFailure: vi.fn(() => true),
+      dispose: vi.fn(),
+    }),
+  );
+}
+
+function succeedNextNativePersistenceFlush() {
+  createNativeTranscriptPersistenceMock.mockImplementationOnce(
+    ({ afterFlush, onPersisted, sessionId, transcriptId }) => ({
+      flush: vi.fn(async () => {
+        onPersisted({
+          session_id: sessionId,
+          transcript_id: transcriptId,
+          transcript_created: true,
+          persisted_through_ms: 500,
+          error: null,
+        });
+        await afterFlush();
+      }),
+      hasPendingFailure: vi.fn(() => false),
+      dispose: vi.fn(),
+    }),
+  );
 }
 
 describe("getPostCaptureAction", () => {
@@ -600,6 +646,11 @@ describe("useStartListening", () => {
       status: "ok",
       data: { activeSessionId: null, finalizingSessionIds: [] },
     });
+    getStoppedCaptureMock.mockResolvedValue({ status: "ok", data: null });
+    acknowledgeStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     emptyCaptureMock.mockResolvedValue(false);
     idMock.mockReturnValue("generated-id");
 
@@ -652,7 +703,13 @@ describe("useStartListening", () => {
       useSessionParticipantHumanIdsMock(),
     );
     createLiveTranscriptMock.mockResolvedValue(undefined);
-    applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
+    createNativeTranscriptPersistenceMock.mockImplementation(
+      ({ afterFlush }) => ({
+        flush: vi.fn(async () => afterFlush()),
+        hasPendingFailure: vi.fn(() => false),
+        dispose: vi.fn(),
+      }),
+    );
     flushLiveTranscriptDeltasToDatabaseMock.mockResolvedValue(undefined);
     transcriptExistsMock.mockResolvedValue(false);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
@@ -740,6 +797,15 @@ describe("useStartListening", () => {
       await result.current();
     });
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({ retain_audio: false });
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      live_transcript: expect.objectContaining({
+        transcript_id: "generated-id",
+        owner_user_id: "user-1",
+        created_at: expect.any(String),
+        started_at_ms: expect.any(Number),
+        memo: "Existing memo",
+      }),
+    });
     const progress = vi.mocked(transcriptionEvents.captureStatusEvent.listen)
       .mock.calls[0]?.[0];
     progress?.({
@@ -1309,6 +1375,49 @@ describe("useStartListening", () => {
     },
   );
 
+  test("does not treat a capture with a committed native transcript as empty", async () => {
+    useSessionMock.mockReturnValue({
+      id: "session-1",
+      user_id: "user-1",
+      raw_md: "",
+      title: "Standup",
+    });
+    const { result } = renderHook(
+      () =>
+        useStartListeningState("session-1", { automatic: true }).startListening,
+    );
+    await act(async () => {
+      await result.current();
+    });
+
+    const onPersisted =
+      createNativeTranscriptPersistenceMock.mock.calls[0]?.[0]?.onPersisted;
+    act(() => {
+      onPersisted?.({
+        session_id: "session-1",
+        transcript_id: "generated-id",
+        transcript_created: true,
+        persisted_through_ms: 500,
+        error: null,
+      });
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(emptyCaptureMock).toHaveBeenCalledWith(
+      expect.objectContaining({ transcriptTouched: true }),
+    );
+  });
+
   test("runs batch transcription after record-only capture stops", async () => {
     const { result } = renderHook(() => useStartListening("session-1"));
 
@@ -1371,6 +1480,7 @@ describe("useStartListening", () => {
   });
 
   test("refines complete multi-speaker Pro transcripts after stop", async () => {
+    succeedNextNativePersistenceFlush();
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "anarlog",
@@ -1435,6 +1545,7 @@ describe("useStartListening", () => {
   ])(
     "refines complete multi-speaker $model transcripts with the installed local batch model",
     async ({ provider, model }) => {
+      succeedNextNativePersistenceFlush();
       useSTTConnectionMock.mockReturnValue({
         conn: {
           provider,
@@ -1849,11 +1960,8 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(applyLiveTranscriptDeltaToDatabaseMock).toHaveBeenCalledWith(
+    expect(flushLiveTranscriptDeltasToDatabaseMock).toHaveBeenCalledWith(
       "transcript-before-reload",
-      expect.objectContaining({
-        new_words: [expect.objectContaining({ id: "word-after-reload" })],
-      }),
     );
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
@@ -1988,20 +2096,11 @@ describe("useStartListening", () => {
       expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce(),
     );
     expect(attachLiveSessionMock).not.toHaveBeenCalled();
-    expect(applyLiveTranscriptDeltaToDatabaseMock).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveDeferral?.();
       await expect(resuming).resolves.toBe("attached");
     });
-    await waitFor(() =>
-      expect(applyLiveTranscriptDeltaToDatabaseMock).toHaveBeenCalledWith(
-        "transcript-before-reload",
-        expect.objectContaining({
-          new_words: [expect.objectContaining({ id: "word-during-reattach" })],
-        }),
-      ),
-    );
 
     expect(beginCloudsyncActivityMock).toHaveBeenCalledBefore(
       attachLiveSessionMock,
@@ -2178,11 +2277,13 @@ describe("useStartListening", () => {
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
   });
 
-  test("finalizes a durable capture when stop happens before listeners reattach", async () => {
+  test("processes a native stopped outcome without an explicit request", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");
     loadCaptureLifecycleMarkerMock
       .mockResolvedValueOnce({
         version: 1,
+        chunkedAudio: true,
+        retainAudio: true,
         sessionId: "session-1",
         transcriptId: "transcript-before-reload",
         startedAt: 1_000,
@@ -2191,9 +2292,13 @@ describe("useStartListening", () => {
         preserveExistingTranscript: true,
         ownerUserId: "user-1",
         memo: "Existing memo",
+        provider: "elevenlabs",
+        model: "scribe_v2",
       })
       .mockResolvedValueOnce({
         version: 1,
+        chunkedAudio: true,
+        retainAudio: true,
         sessionId: "session-1",
         transcriptId: "transcript-before-reload",
         startedAt: 1_000,
@@ -2202,18 +2307,36 @@ describe("useStartListening", () => {
         preserveExistingTranscript: true,
         ownerUserId: "user-1",
         memo: "Existing memo",
+        provider: "elevenlabs",
+        model: "scribe_v2",
       })
       .mockResolvedValueOnce(null);
+    getStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        session_id: "session-1",
+        stopped_at_ms: 123456,
+        duration_seconds: 42,
+        chunked_audio: true,
+        audio_path: "/tmp/native-session.wav",
+        requested_live_transcription: true,
+        live_transcription_active: false,
+        error: null,
+      },
+    });
     const { result } = renderHook(() =>
       useResumeListeningLifecycle("session-1"),
     );
 
     await act(async () => {
-      await expect(result.current({ processStopped: true })).resolves.toBe(
-        "inactive",
-      );
+      await expect(result.current()).resolves.toBe("inactive");
     });
 
+    expect(getStoppedCaptureMock).toHaveBeenCalledWith("session-1");
+    expect(acknowledgeStoppedCaptureMock).toHaveBeenCalledWith(
+      "session-1",
+      123456,
+    );
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
       deferAudioFinalization: true,
       notifyOnCompletion: true,
@@ -2237,6 +2360,154 @@ describe("useStartListening", () => {
     expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
       "capture",
       "session-1:transcript-before-reload",
+    );
+  });
+
+  test("falls back to whole-chunk recovery when the native ledger starts too late", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 0,
+      preserveExistingTranscript: false,
+      ownerUserId: "user-1",
+      memo: "",
+      provider: "anarlog",
+      model: "am-test",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    getStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        session_id: "session-1",
+        stopped_at_ms: 123_456,
+        duration_seconds: 60,
+        chunked_audio: true,
+        audio_path: null,
+        requested_live_transcription: true,
+        live_transcription_active: false,
+        error: null,
+      },
+    });
+    vi.mocked(transcriptionCommands.getCaptureAudioGaps).mockResolvedValue({
+      status: "ok",
+      data: {
+        capture_started_at_ms: 61_001,
+        gaps: [{ start_ms: 21_000, end_ms: 31_000 }],
+        open_gap_started_at_ms: null,
+        awaiting_connection: false,
+        storage_failed: false,
+        confirmed_through_ms: null,
+      },
+    });
+    vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "1000-0-60000-0.mp3",
+          path: "/tmp/recovery-chunk.mp3",
+          capture_started_at: 1_000,
+          start_ms: 0,
+          audio_start_ms: 0,
+          end_ms: 60_000,
+        },
+      ],
+    });
+    runBatchMock.mockImplementationOnce(async (_path, options) => {
+      await options.recovery.persist(
+        [
+          {
+            id: "recovered-word",
+            text: "recovered",
+            start_ms: 0,
+            end_ms: 1,
+            channel: 0,
+          },
+        ],
+        [],
+      );
+    });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(appendRecoveredTranscriptWordsMock).toHaveBeenCalledWith(
+      "transcript-before-reload",
+      [
+        {
+          id: "recovered-word",
+          text: "recovered",
+          start_ms: 0,
+          end_ms: 1,
+          channel: 0,
+        },
+      ],
+      [],
+      [{ start: 0, end: 60_000 }],
+      [],
+    );
+  });
+
+  test("rechecks for a native stopped outcome after attaching listeners", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+      provider: "elevenlabs",
+      model: "scribe_v2",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    getStoppedCaptureMock
+      .mockResolvedValueOnce({ status: "ok", data: null })
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          session_id: "session-1",
+          stopped_at_ms: 123456,
+          duration_seconds: 42,
+          chunked_audio: true,
+          audio_path: "/tmp/native-session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: false,
+          error: null,
+        },
+      });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(getStoppedCaptureMock).toHaveBeenCalledTimes(2);
+    expect(acknowledgeStoppedCaptureMock).toHaveBeenCalledWith(
+      "session-1",
+      123456,
     );
   });
 
@@ -2942,7 +3213,7 @@ describe("useStartListening", () => {
   });
 
   test("repairs from finalized audio when live transcript persistence fails", async () => {
-    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    failNextNativePersistenceFlush();
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -3150,77 +3421,8 @@ describe("useStartListening", () => {
     });
   });
 
-  test("coalesces live transcript deltas in arrival order", async () => {
-    let resolveCreate: (() => void) | undefined;
-    createLiveTranscriptMock.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveCreate = resolve;
-        }),
-    );
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const callbacks = startMock.mock.calls[0]?.[1];
-    callbacks?.handlePersist?.({
-      new_words: [
-        {
-          id: "word-1",
-          text: "first",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 0,
-        },
-      ],
-      replaced_ids: [],
-      partials: [],
-    });
-    callbacks?.handlePersist?.({
-      new_words: [
-        {
-          id: "word-2",
-          text: "second",
-          start_ms: 100,
-          end_ms: 200,
-          channel: 0,
-        },
-      ],
-      replaced_ids: [],
-      partials: [],
-    });
-
-    await waitFor(() => {
-      expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
-    });
-    expect(applyLiveTranscriptDeltaToDatabaseMock).not.toHaveBeenCalled();
-    expect(
-      createLiveTranscriptMock.mock.calls[0]?.[1].new_words.map(
-        (word: { id: string }) => word.id,
-      ),
-    ).toEqual(["word-1", "word-2"]);
-
-    resolveCreate?.();
-
-    await act(async () => {
-      await callbacks?.onStopped?.("session-1", {
-        durationSeconds: 1,
-        audioPath: null,
-        requestedLiveTranscription: true,
-        liveTranscriptionActive: true,
-        needsBatchRepair: false,
-      });
-    });
-    expect(flushLiveTranscriptDeltasToDatabaseMock).toHaveBeenCalledWith(
-      "generated-id",
-    );
-    expect(waitForSessionSearchIndexMock).toHaveBeenCalledWith("session-1");
-  });
-
   test("does not summarize an incomplete live transcript without repair audio", async () => {
-    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    failNextNativePersistenceFlush();
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -3269,7 +3471,7 @@ describe("useStartListening", () => {
   });
 
   test("keeps repair audio when both live persistence and batch repair fail", async () => {
-    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    failNextNativePersistenceFlush();
     runBatchMock.mockRejectedValueOnce(new Error("batch failed"));
     const consoleError = vi
       .spyOn(console, "error")
@@ -3519,14 +3721,8 @@ describe("useStartListening", () => {
     );
   });
 
-  test("regenerates the summary after resumed live capture writes transcript", async () => {
-    let resolveTranscriptWrite: (() => void) | undefined;
-    createLiveTranscriptMock.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveTranscriptWrite = resolve;
-        }),
-    );
+  test("regenerates the summary after resumed live capture is journaled", async () => {
+    succeedNextNativePersistenceFlush();
     useSessionHasTranscriptMock.mockReturnValue(true);
 
     const { result } = renderHook(() => useStartListening("session-1"));
@@ -3564,13 +3760,8 @@ describe("useStartListening", () => {
     });
 
     expect(resetEnhanceTasksMock).not.toHaveBeenCalled();
-    await waitFor(() => {
-      expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
-    });
-    resolveTranscriptWrite?.();
     await act(async () => await stopped);
 
-    expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
     expect(resetEnhanceTasksMock).toHaveBeenCalledWith("session-1");
     expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
@@ -3613,6 +3804,7 @@ describe("useStartListening", () => {
   });
 
   test("replaces only the current live transcript when resumed capture needs batch repair", async () => {
+    succeedNextNativePersistenceFlush();
     useSessionHasTranscriptMock.mockReturnValue(true);
 
     const { result } = renderHook(() => useStartListening("session-1"));
@@ -3634,10 +3826,6 @@ describe("useStartListening", () => {
       ],
       replaced_ids: [],
       partials: [],
-    });
-
-    await waitFor(() => {
-      expect(createLiveTranscriptMock).toHaveBeenCalledOnce();
     });
 
     await act(async () => {

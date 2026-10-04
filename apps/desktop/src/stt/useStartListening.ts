@@ -49,7 +49,6 @@ export {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
-  type PostCaptureRepairReason,
 } from "./capture-lifecycle";
 export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
@@ -227,6 +226,7 @@ export function useStartListeningState(
           transcription_mode: liveTranscriptionConfig.transcriptionMode,
           participant_human_ids: remoteParticipantHumanIds,
           self_human_id: session?.user_id || null,
+          live_transcript: lifecycle.liveTranscript,
         },
         {
           handlePersist: lifecycle.handlePersist,

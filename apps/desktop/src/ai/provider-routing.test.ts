@@ -1,5 +1,22 @@
 import { afterEach, expect, it, vi } from "vitest";
 
+vi.mock(
+  "@lobehub/icons",
+  () =>
+    new Proxy(
+      {},
+      {
+        has: (_target, name) => name !== "then",
+        get: (_target, name) => (name === "then" ? undefined : () => null),
+      },
+    ),
+);
+vi.mock("@anlg/ui/components/icons", () => ({
+  Cpu: () => null,
+  Shuffle: () => null,
+  Waveform: () => null,
+}));
+
 vi.mock("~/settings/ai/shared", () => ({
   AnarlogProviderIcon: () => null,
   ProviderBrandImage: () => null,

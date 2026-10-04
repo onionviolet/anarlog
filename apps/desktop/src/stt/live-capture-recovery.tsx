@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   hasPendingZeroRetentionAudio,
   loadCaptureLifecycleMarker,
-  loadCaptureLifecycleMarkers,
 } from "./capture-lifecycle-storage";
 import { listenCaptureRecoveryRequests } from "./capture-recovery-requests";
 import { useResumeListeningLifecycle } from "./useStartListening";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const CAPTURE_RECOVERY_BASE_RETRY_MS = 2_000;
 const CAPTURE_RECOVERY_MAX_ATTEMPTS = 5;
@@ -61,8 +59,8 @@ export function LiveCaptureRecovery() {
     let active = true;
     let unlisten: (() => void) | undefined;
 
-    // Only explicit requests process stopped captures; ones found at launch
-    // or after a renderer reload wait for the user.
+    // Explicit requests and unacknowledged native stop outcomes are processed;
+    // marker-only captures found at launch wait for the user.
     const addSessionIds = (ids: Array<string | null>, requested = false) => {
       if (!active) {
         return;
@@ -102,33 +100,29 @@ export function LiveCaptureRecovery() {
       });
 
     void listenerCommands
-      .getCaptureSnapshot()
+      .listCaptureRecoveries()
       .then((result) => {
         if (result.status === "error") {
           console.error(
-            "[listener] failed to recover active capture:",
+            "[listener] failed to list capture recoveries",
             result.error,
           );
           return;
         }
-        addSessionIds([
-          result.data.activeSessionId,
-          ...result.data.finalizingSessionIds,
-        ]);
-      })
-      .catch((error) => {
-        console.error("[listener] failed to recover active capture:", error);
-      });
-
-    void loadCaptureLifecycleMarkers()
-      .then((markers) => {
-        addSessionIds(markers.map((marker) => marker.sessionId));
-      })
-      .catch((error) => {
-        console.error(
-          "[listener] failed to load capture recovery state",
-          error,
+        addSessionIds(
+          result.data
+            .filter((recovery) => recovery.process_stopped)
+            .map((recovery) => recovery.session_id),
+          true,
         );
+        addSessionIds(
+          result.data
+            .filter((recovery) => !recovery.process_stopped)
+            .map((recovery) => recovery.session_id),
+        );
+      })
+      .catch((error) => {
+        console.error("[listener] failed to list capture recoveries", error);
       });
 
     return () => {

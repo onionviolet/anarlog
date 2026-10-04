@@ -303,7 +303,8 @@ async fn refreshed_credentials_resume_live_transcription_after_authentication_fa
     let chunks = crate::actors::recorder::list_recovery_chunks(&session_dir).unwrap();
     assert!(!chunks.is_empty());
     assert!(!crate::actors::recorder::delete_transcribed_capture_audio(&session_dir).unwrap());
-    assert!(!session_dir.join("audio.mp3").exists());
+
+    // This runtime emits transcript events without a persistence worker to acknowledge audio.
     for chunk in chunks {
         crate::actors::recorder::acknowledge_recovery_chunk(&session_dir, &chunk.id).unwrap();
     }
@@ -313,6 +314,7 @@ async fn refreshed_credentials_resume_live_transcription_after_authentication_fa
             .unwrap()
             .is_empty()
     );
+    assert!(!session_dir.join("audio.mp3").exists());
 }
 
 #[tokio::test]

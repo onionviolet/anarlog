@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useRegenerateTranscript } from "./actions";
 
@@ -35,7 +36,6 @@ import {
 } from "~/settings/general/language";
 import { useAiProvidersState } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   getTranscriptionLanguages,
   isLocalFileSttModel,

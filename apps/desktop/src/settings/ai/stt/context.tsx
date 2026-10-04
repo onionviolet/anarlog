@@ -3,7 +3,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -15,12 +14,12 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useBillingAccess } from "~/auth/billing-context";
-import { useToastAction } from "~/store/zustand/toast-action";
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
 
 type SttSettingsContextType = {
   accordionValue: string;
   setAccordionValue: (value: string) => void;
-  startDownload: (model: LocalModel) => void;
+  startDownload: (model: LocalModel, provider: string) => void;
   queuedDownloads: LocalModel[];
   startTrial: () => void;
 };
@@ -37,19 +36,10 @@ export function SttSettingsProvider({
   const [accordionValue, setAccordionValue] = useState<string>("");
   const { upgradeToPro } = useBillingAccess();
 
-  const toastActionTarget = useToastAction((state) => state.target);
-  const clearToastActionTarget = useToastAction((state) => state.clearTarget);
-
-  useEffect(() => {
-    if (toastActionTarget === "stt") {
-      clearToastActionTarget();
-    }
-  }, [toastActionTarget, clearToastActionTarget]);
-
   const [queuedDownloads, setQueuedDownloads] = useState<LocalModel[]>([]);
   const queuedDownloadsRef = useRef<Set<LocalModel>>(new Set());
 
-  const startDownload = useCallback((model: LocalModel) => {
+  const startDownload = useCallback((model: LocalModel, provider: string) => {
     if (queuedDownloadsRef.current.has(model)) {
       return;
     }
@@ -61,6 +51,24 @@ export function SttSettingsProvider({
 
     queuedDownloadsRef.current.add(model);
     setQueuedDownloads([...queuedDownloadsRef.current]);
+    const selection = { provider, model };
+    usePendingSttSelection.setState((state) => ({
+      selection,
+      queuedDownloads: [
+        ...state.queuedDownloads.filter((queued) => queued !== model),
+        model,
+      ],
+    }));
+    const clearPendingSelection = () => {
+      usePendingSttSelection.setState((state) => ({
+        queuedDownloads: state.queuedDownloads.filter(
+          (queued) => queued !== model,
+        ),
+      }));
+      if (usePendingSttSelection.getState().selection === selection) {
+        usePendingSttSelection.setState({ selection: null });
+      }
+    };
     void localSttCommands.downloadModel(model).then(
       (result) => {
         if (result.status === "error") {
@@ -68,6 +76,7 @@ export function SttSettingsProvider({
             description: result.error,
           });
           dequeue();
+          clearPendingSelection();
           return;
         }
 
@@ -81,6 +90,7 @@ export function SttSettingsProvider({
           description: error instanceof Error ? error.message : String(error),
         });
         dequeue();
+        clearPendingSelection();
       },
     );
   }, []);

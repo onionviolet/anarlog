@@ -52,11 +52,20 @@ it.each(["crisp", "balanced", "detailed"] as const)(
         },
       ],
       imageContext: [],
+      lengthPolicy: {
+        mode: summaryLength,
+        transcript_characters: 636,
+        guidance: {
+          max_characters: 636,
+          min_sections: 1,
+          max_sections: 2,
+        },
+      },
       dictionaryTerms: [],
     };
     const chunks = [];
     for await (const chunk of enhanceWorkflow.executeWorkflow!({
-      model: {} as LanguageModel,
+      model: { provider: "openai.responses" } as LanguageModel,
       args,
       onProgress: vi.fn(),
       signal: new AbortController().signal,
@@ -69,12 +78,12 @@ it.each(["crisp", "balanced", "detailed"] as const)(
       enhanceSystem: { language: "en", formatOverride },
     });
     expect(request.system).toContain("Rendered system prompt");
-    expect(request.maxOutputTokens).toBe(8192);
     expect(request.system).not.toMatch(
       /never put prose|bullets per section|# Next Steps/,
     );
     expect(request.prompt).toContain("Keep the requested structure");
     expect(request.prompt).not.toMatch(/\d to \d sections/);
+    expect(request.maxOutputTokens).toBeUndefined();
   },
 );
 
@@ -103,10 +112,19 @@ it("adds length guidance to prompts rendered from a template with sections", asy
       },
     ],
     imageContext: [],
+    lengthPolicy: {
+      mode: "detailed",
+      transcript_characters: 10_000,
+      guidance: {
+        max_characters: 10_000,
+        min_sections: 3,
+        max_sections: 6,
+      },
+    },
     dictionaryTerms: [],
   };
   for await (const _ of enhanceWorkflow.executeWorkflow!({
-    model: {} as LanguageModel,
+    model: { provider: "anthropic.messages" } as LanguageModel,
     args,
     onProgress: vi.fn(),
     signal: new AbortController().signal,
@@ -117,14 +135,15 @@ it("adds length guidance to prompts rendered from a template with sections", asy
   expect(request.prompt).toContain("Summary length:");
   expect(request.prompt).toContain("Keep every requested template section");
   expect(request.prompt).not.toMatch(/\d to \d sections/);
+  expect(request.maxOutputTokens).toBe(64_000);
 });
 it.each([
-  [4096, "ollama.chat", "qwen3.5:4b"],
-  [8192, "ollama.chat", "gpt-oss:20b"],
-  [8192, "openai", "gpt-5"],
+  ["ollama.chat", "qwen3.5:4b"],
+  ["ollama.chat", "gpt-oss:20b"],
+  ["openai", "gpt-5"],
 ])(
-  "uses a %i-token summary cap for %s/%s",
-  async (maxOutputTokens, provider, modelId) => {
+  "does not truncate summaries with an app-level cap for %s/%s",
+  async (provider, modelId) => {
     const args: TaskArgsMapTransformed["enhance"] = {
       language: "en",
       formatOverride: "",
@@ -142,6 +161,7 @@ it.each([
         },
       ],
       imageContext: [],
+      lengthPolicy: null,
       dictionaryTerms: [],
     };
 
@@ -154,7 +174,7 @@ it.each([
     }
 
     expect(mocks.streamText).toHaveBeenCalledWith(
-      expect.objectContaining({ maxOutputTokens }),
+      expect.objectContaining({ maxOutputTokens: undefined }),
     );
   },
 );

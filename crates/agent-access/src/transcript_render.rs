@@ -351,7 +351,6 @@ mod tests {
     fn export(transcripts: Vec<Transcript>, speakers: Vec<Speaker>) -> MeetingExport {
         MeetingExport {
             meeting: Meeting {
-                folder_path: None,
                 id: "meeting-1".to_string(),
                 title: "Planning".to_string(),
                 kind: String::new(),
@@ -377,6 +376,7 @@ mod tests {
                         organization_name: String::new(),
                     })
                     .collect(),
+                folder_path: None,
                 action_items: Vec::new(),
             },
             transcripts,

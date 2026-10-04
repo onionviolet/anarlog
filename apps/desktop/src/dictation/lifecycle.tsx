@@ -11,6 +11,7 @@ import { commands as permissions } from "@anlg/plugin-permissions";
 import { commands as shortcuts, events } from "@anlg/plugin-shortcut";
 import { commands as transcription } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { cleanDictation } from "./cleanup";
 import { DictationController } from "./controller";
@@ -21,7 +22,6 @@ import { useLanguageModel } from "~/ai/hooks";
 import { useAuth } from "~/auth";
 import { useSettingsReady } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
 import { useSTTConnection } from "~/stt/useSTTConnection";

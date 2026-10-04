@@ -538,6 +538,10 @@ msgstr ""
 msgid "Already taken"
 msgstr ""
 
+#: src/session/components/outer-header/overflow/always-on-top.tsx
+msgid "Always on Top"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr ""
@@ -594,10 +598,6 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Anarlog could not start cloud sync on this device. It will keep retrying."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -847,10 +847,6 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Background sync"
-msgstr ""
-
 #: src/settings/general/summary-length.tsx
 msgid "Balanced"
 msgstr ""
@@ -1080,10 +1076,6 @@ msgstr ""
 #: src/settings/automations/starter-config.tsx
 #: src/settings/crm/index.tsx
 msgid "Checking connection…"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Checking for changes"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -1670,7 +1662,7 @@ msgid "Continue anyway"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Continue to Team checkout"
+msgid "Continue to Pro checkout"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -1817,6 +1809,10 @@ msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
+msgstr ""
+
+#: src/settings/sync/log.tsx
+msgid "Could not load sync logs."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -2909,7 +2905,7 @@ msgstr ""
 msgid "Hide Sidebar"
 msgstr ""
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Hide sync log"
 msgstr ""
 
@@ -3128,6 +3124,7 @@ msgstr ""
 msgid "Job Title"
 msgstr ""
 
+#: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
 msgstr ""
@@ -3367,6 +3364,10 @@ msgstr ""
 msgid "Loading settings"
 msgstr ""
 
+#: src/settings/sync/log.tsx
+msgid "Loading sync logs"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Loading sync settings"
 msgstr ""
@@ -3440,15 +3441,11 @@ msgid "Manage sign-in methods"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Manage Team billing"
+msgid "Manage workspace billing"
 msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Manage your sign-in methods on the Anarlog website."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Manual sync"
 msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
@@ -3649,6 +3646,10 @@ msgstr ""
 msgid "Model download couldn’t start"
 msgstr ""
 
+#: src/contexts/notifications.tsx
+msgid "Model downloaded"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Model is thinking..."
 msgstr ""
@@ -3773,10 +3774,6 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "No changelog available for this version."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "No changes to sync"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -3931,7 +3928,7 @@ msgstr ""
 msgid "No speech detected"
 msgstr ""
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "No sync activity yet."
 msgstr ""
 
@@ -3955,6 +3952,7 @@ msgstr ""
 msgid "Not available"
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr ""
@@ -4096,7 +4094,6 @@ msgstr ""
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
-#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr ""
@@ -4133,6 +4130,10 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Open in right panel"
+msgstr ""
+
+#: src/services/event-notification/index.ts
+msgid "Open meeting"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -4430,7 +4431,11 @@ msgid "Pro features available"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Pro plan"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -4506,17 +4511,12 @@ msgstr ""
 msgid "received"
 msgstr ""
 
-#. placeholder {0}: formatSyncBytes(entry.received_bytes)
-#: src/settings/sync/index.tsx
-msgid "Received {0}"
-msgstr ""
-
 #: src/shared/open-note-dialog.tsx
 msgid "Recent"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Recent activity from this app session."
+#: src/settings/sync/log.tsx
+msgid "Recent CloudSync entries from the app log."
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -4844,6 +4844,7 @@ msgstr ""
 #: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Retry"
 msgstr ""
@@ -4947,6 +4948,7 @@ msgstr ""
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
 msgstr ""
@@ -5159,11 +5161,6 @@ msgstr ""
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "sent"
-msgstr ""
-
-#. placeholder {0}: formatSyncBytes(entry.sent_bytes)
-#: src/settings/sync/index.tsx
-msgid "Sent {0}"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx
@@ -5623,12 +5620,16 @@ msgstr ""
 msgid "Start listening when a scheduled meeting begins."
 msgstr ""
 
-#: src/main/empty.tsx
-msgid "Start Recording"
+#: src/settings/team/index.tsx
+msgid "Start Pro"
 msgstr ""
 
-#: src/settings/team/index.tsx
-msgid "Start Team"
+#: src/services/event-notification/index.ts
+msgid "Start recording"
+msgstr ""
+
+#: src/main/empty.tsx
+msgid "Start Recording"
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -5652,6 +5653,7 @@ msgid "Start writing..."
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Starting"
 msgstr ""
 
@@ -5820,15 +5822,11 @@ msgstr ""
 msgid "Sync"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Sync failed"
-msgstr ""
-
 #: src/settings/sync/health.tsx
 msgid "Sync health"
 msgstr ""
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Sync log"
 msgstr ""
 
@@ -5921,10 +5919,6 @@ msgstr ""
 
 #: src/settings/automations/direct-connection.tsx
 msgid "Team or page ID"
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "Team plan"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -6069,10 +6063,6 @@ msgstr ""
 
 #: src/settings/plan-gate.tsx
 msgid "This requires Anarlog Pro"
-msgstr ""
-
-#: src/settings/plan-gate.tsx
-msgid "This requires Anarlog Team"
 msgstr ""
 
 #. placeholder {0}: status.fileCount
@@ -6489,7 +6479,7 @@ msgstr ""
 msgid "View Note"
 msgstr ""
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "View sync log"
 msgstr ""
 

@@ -15,7 +15,7 @@ import {
   buildTranscriptExportSegments,
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
-import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
+import { getSessionTranscriptRenderRequest } from "~/session/components/note-input/transcript/render-request-hooks";
 import { RetranscriptionDialog } from "~/session/components/note-input/transcript/retranscription-dialog";
 import { useHasTranscript } from "~/session/components/shared";
 import {
@@ -23,6 +23,7 @@ import {
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useListener } from "~/stt/contexts";
+import { useSessionTranscriptMetadata } from "~/stt/queries";
 import { useStartListeningWithBatchOverride } from "~/stt/useStartListeningWithBatchOverride";
 import {
   isMainWebviewWindow,
@@ -201,8 +202,7 @@ function HeaderViewTranscriptActive({
   const [retranscriptionOpen, setRetranscriptionOpen] = useState(false);
   const startListening = useStartListeningWithBatchOverride(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
-  const { request: transcriptExportRequest } =
-    useSessionTranscriptRenderData(sessionId);
+  const transcriptMetadata = useSessionTranscriptMetadata(sessionId);
   const {
     audioExists,
     audioExistsResolved,
@@ -220,13 +220,15 @@ function HeaderViewTranscriptActive({
 
     onClick?.();
   }, [canEdit, editMode, onClick, onEditModeChange]);
-  const canCopyTranscript = Boolean(transcriptExportRequest);
+  const canCopyTranscript = transcriptMetadata.some((t) => t.hasWords);
   const handleCopyTranscript = useCallback(async () => {
-    if (!transcriptExportRequest) {
-      return;
-    }
-
     try {
+      const transcriptExportRequest =
+        await getSessionTranscriptRenderRequest(sessionId);
+      if (!transcriptExportRequest) {
+        return;
+      }
+
       const transcriptSegments = await buildTranscriptExportSegments(
         transcriptExportRequest,
       );
@@ -243,7 +245,7 @@ function HeaderViewTranscriptActive({
       console.error("Failed to copy transcript", error);
       toast.error("Failed to copy transcript");
     }
-  }, [transcriptExportRequest]);
+  }, [sessionId]);
   const handleDeleteRecording = useCallback(() => {
     void deleteRecording();
   }, [deleteRecording]);
