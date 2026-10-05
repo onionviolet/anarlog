@@ -6,7 +6,21 @@ Each block is tagged **[grammar]** (transferable structure worth learning) or **
 
 ---
 
-## Current source, 2026-10-03
+## Current source, 2026-10-05
+
+**Source:** `main` includes 18 new upstream commits through `2a8459e98f`, preserving the fork's local features. No app installation or release publication has been performed from this source.
+
+**Absorbed changes:** batch-only STT runs once after recording stops; mono AssemblyAI diarization uses the mixed-capture channel; synthetic Soniqo transcripts retain channel and chunk ordering. Recurring calendar meetings can auto-add notes to folders. Sync accepts authoritative cloud state while preserving offline edits, avoids duplicate summaries, restores share indicators, and includes five Pro devices with paid extra slots. Unicode Markdown conversion, floating chat, note typing visibility, and menu/share-panel layout are also updated.
+
+**Preserved fork behavior:** local features and supported local/BYOK transcription stay available without payment or sign-in. R2T2 checkpoints, explicit import-provider selection, direct device-local automation credentials, mobile recording controls, and recording safeguards remain intact. Rust-generated capture bindings carry both upstream's `postStopBatch` flag and the fork's `autoSummaryAfterRecording` preference; their combined marker round-trip test passes.
+
+**Verification:** all eight affected TypeScript package typechecks passed, along with 1,211 tests across eleven affected Rust libraries, 35 CLI tests, 52 transcription-plugin tests, 33 native desktop tests, 69 serial CloudSync tests, 89 common CI tests, 286 mobile tests, 365 web tests, 35 shared-client tests, and 213 editor tests. Both macOS distribution configurations compile. Strict Clippy passed for the ten selected Rust packages. API compilation and OpenAPI/client generation passed without generated drift. The release CLI build and isolated help/version, missing-database, argument-validation, auth, and credential-redaction smoke checks passed. License checks, formatting/checking, Oxlint, strict translation compilation, release-version/changelog consistency, API deployment/E2EE Python tests, and public media checks passed. The full desktop run passed 4,130 tests and failed 17 across three unchanged files while checks competed for resources; all 52 tests in those files passed on the serial rerun with the original timeouts.
+
+**Remaining coverage:** the initial full desktop result remains non-clean despite the successful focused rerun. The broad `cargo test --locked` run reached the external `db-core --test e2e` check and stopped because `SQLITECLOUD_URL` is unavailable; local validation follows CI's library-test selection. The touched-file ESLint run reports one pre-existing query-key error in `session-sharing/delivery-panel.tsx`; the merge changes its visual controls, not that query. The offline workflow audit reports 349 existing findings; authenticated audits are unavailable. Docker/Supabase, installation, hardware/provider execution, hosted database tests, and other-platform native checks are separate from this source integration.
+
+See the September 30 entry below for the last installed build and paused EMT retranscription details.
+
+## Historical source, 2026-10-03
 
 **Source:** local `main`, integrated through `chore/upstream-workflow-refresh-20261003`, includes upstream through `93deb8642e` (90 new commits) with the fork's local features. This source has not been installed or published.
 
